@@ -1,0 +1,78 @@
+2012-02-29  John Coleman  <ninthclowd@users.sourceforge.net>
+* Version upgraded to 1.0.6
+* The --protect option now should work properly and the --unprotect option has been added.  If you specify neither, the drive will use it's default.
+* Sense data now always returns properly
+* Fixed a number of problems related to bit ordering in structures
+* Added the --enable-swapbit configure option to fix problems on AIX with the bit ordering being reversed in the structures.  The program will now error out if it detects the program was compiled with the wrong option.
+* Added the --with-default-algorithm configure option to specify a default algorithm, so you don't have to do it with each set operation
+* Added the --with-default-ceem configure option in order to specify a different CEEM flag other than the drive default.
+* Added the --disable-device-name-conversion configure option to prevent the program from converting device names to rewinding device names
+* Added the --with-default-keysize configure option to specify the keysize to send to the drive when turning encryption off
+
+2012-02-24  John Coleman  <ninthclowd@users.sourceforge.net>
+* Version upgraded to 1.0.5
+* Updated manual to reflect that stenc may not work if there is no tape in the device
+* Updated manual to reflect that keys are no longer padded
+* The program will now seek up to 100 blocks on the tape drive in order to determine the volume encryption status.  The tape will be returned to the previous position after the status is returned.
+* The program now automatically converts /dev/st* device names to /dev/nst* and /dev/rmt* device names to /dev/rmt*.1 to prevent rewinding.
+* Updated --with-static-libgcc configure option to work on AIX
+
+2012-02-22  John Coleman  <ninthclowd@users.sourceforge.net>
+* Version upgraded to 1.0.4
+* Fixed a compliler warning related to the seeding the random generator
+* Change the --with-statgcc configure option to --with-static-libgcc and modified that option to work with linux as well as AIX
+* Cleaned up various constants for consistancy
+* Changed some function names for consistancy
+* Added code to read KAD (Key Descriptors) and display them if found
+* Generating a key with -g now asks for a key description as well (optional)
+* Setting encryption without the -k option will now ask for a key description as well (optional)
+* Sense data is now checked and outputted if the device does not accept the command
+* added the 'mixed' encryption mode
+* added the 'rawread' encryption mode
+* changed the -u flag to --protect to avoid confusion and correct a mistake
+* added the --ckod flag to instruct the drive to clear its key when the volume is dismounted
+* The program now chmods /var/log/stenc to 600 to prevent unauthorized users from getting key change history
+* Algorithm is no longer put into /var/log/stenc.  Security related.
+* Key checksums are now overriden by the key descriptor in /var/log/stenc.  Security related.
+
+2012-02-16  John Coleman  <ninthclowd@users.sourceforge.net>
+* Version upgraded to 1.0.3
+* Program now validates key input properly
+* Key checksums work much better
+* Program now displays key size, key checksum, and whether or not it is padding a key when it is entered.
+* Manual entry has been updated
+
+2012-02-15  John Coleman  <ninthclowd@users.sourceforge.net>
+* Version upgraded to 1.0.2
+* Created 'man' entry for stenc and updated help file to reference manual
+* Key Instance Counter is now stamped into the log file when turning off encryption
+* Key Instance Counter is now displayed in the device status even when it is not encrypting
+
+2012-02-15  Sam Martinez <sam_martinez_82@hotmail.com>
+* Version upgraded to 1.0.1
+* Added random key generator
+
+2012-02-14  John Coleman  <ninthclowd@users.sourceforge.net>
+* Version upgraded to 1.0.0
+* Removed most C code and replaced with C++ code
+* Simplified all command line arguments
+* Added a key change audit log file (/var/log/stenc)
+* Removed the ability to enter a key as part of the command (security related)
+* Key entry is now hidden from stdout and is verified for accuracy
+* Added the ability to use file for a key using the -k option
+* Program now exits if you aren't root 
+* added the --with-statgcc configure option to link static libgcc libraries
+
+2010-09-03  John Coleman  <ninthclowd@users.sourceforge.net>
+
+* Program now prompts if you turn encryption completely off
+* Added -f option to suppress prompting
+* Program now displays proper ioctl errors (i.e. I/O, permission, etc.)
+* Device vendor, product ID, and product revision are now displayed with each request
+* Errors now properly display whether or not the device accepted the command
+
+2010-09-02  John Coleman  <ninthclowd@users.sourceforge.net>
+
+* Initial Release
+* Added basic support for AIX 5.3, error codes still not outputted
+
