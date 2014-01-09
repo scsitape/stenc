@@ -5,17 +5,20 @@
 stenc - SCSI Tape Hardware Encryption Manager 
 
 .SH SYNOPSIS 
-\fBstenc\fR \fB\-g\fR \fIlength\fR
+\fBstenc\fR \fB\-g\fR \fIlength\fR \fB\-k\fR \fIfile\fR [\fB\-kd\fR \fIdescription\fR]
 .br 
-\fBstenc\fR \fB\-f\fR \fIdevice\fR
+\fBstenc\fR \fB\-f\fR \fIdevice\fR [\fB\-\-detail\fR]
 .br
-\fBstenc\fR \fB\-f\fR \fIdevice\fR \fB\-e\fR \fBon\fR|\fBmixed\fR|\fBrawread\fR [\fB\-a\fR \fIindex\fR] [\fB\-k\fR \fIfile\fR] [\fB\-\-ckod\fR] [\fB\-\-protect\fR | \fB\-\-unprotect\fR] ]
+\fBstenc\fR \fB\-f\fR \fIdevice\fR \fB\-e\fR \fBon\fR|\fBmixed\fR|\fBrawread\fR [\fB\-a\fR \fIindex\fR] [\fB\-k\fR \fIfile\fR] [\fB\-\-ckod\fR] [\fB\-\-protect\fR | \fB\-\-unprotect\fR] 
 .br
-\fBstenc\fR \fB\-f\fR \fIdevice\fR \fB\-e\fR \fBoff\fR
+\fBstenc\fR \fB\-f\fR \fIdevice\fR \fB\-e\fR \fBoff\fR [\fB\-a\fR \fIindex\fR] [\fB\-\-ckod\fR] [\fB\-\-protect\fR | \fB\-\-unprotect\fR]
+.br
+\fBstenc\fR \fB\-\-version\fR
+
 
 .SH AVAILABILITY 
 
-Linux, AIX 5.3
+Linux, AIX
 
 .SH DESCRIPTION 
 
@@ -23,15 +26,15 @@ Allows you to manage hardware encryption on SSP enabled tape devices (LTO4, LTO5
 
 .SH OPTIONS 
 .TP
-\fB\-g \fIlength\fR
-Generates a key file of \fIlength\fR (in bits) containing a random hexadecimal key. After entering this option, you will be required to press random keys followed by the enter key.  This will seed the random number generator so that your key is more secure.  After that you will be asked for a location to save your key file to (you will need write permissions to that file location). Lastly you can enter an optional key description (see \fIKEY DESCRIPTORS\fR). This key file can then be used with the \fB\-k\fR option. You should not generate a key file over an unsecured remote session. Typically, key files should be set to 256 bits (32 hexadecimal bytes), however your device may only support 128 bits.
+\fB\-g \fIlength\fR \fB\-k\fR \fB<file to save as>\fR [\fB\-kd\fR \fI<key descriptor(uKAD)>\fR]
+Generates a key file of \fIlength\fR (in bits) containing a random hexadecimal key. After entering this option, you will be required to press random keys followed by the enter key.  This will seed the random number generator so that your key is more secure.  Specify the file to save the key into with the -k option (you will need write permissions to that file location). Lastly you can enter an optional key description using the -kd flag (see \fIKEY DESCRIPTORS\fR). This key file can then be used with the \fB\-k\fR option. You should not generate a key file over an unsecured remote session. Typically, key files should be set to 256 bits (32 hexadecimal bytes), however your device may only support 128 bits.
 
 .TP
 \fB\-f\fR \fIdevice\fR
 
-Specifies the device to use (i.e. \fI/dev/nst0\fR). Use the \fBlsscsi\fR command to determine the appropriate device to use.  You should always use a device name that does not rewind (i.e. use /dev/nst0 instead of /dev/st0, /dev/rmt0.1 instead of /dev/rmt0).
+Specifies the device to use (i.e. \fI/dev/nst0, /dev/rmt0.1, /dev/sg0\fR). Use the \fBlsscsi\fR command to determine the appropriate device to use.  You should always use a device name that does not rewind (i.e. use /dev/nst0 instead of /dev/st0, /dev/rmt0.1 instead of /dev/rmt0).   Use commands like 'cat /proc/scsi/scsi', 'lsscsi', and 'lsdev' to determine the proper device to use.  On some distros, a /dev/sg device must be used instead of a /dev/st device.
 
-If this is the only option specified, the status of the device will be displayed.  If you are root and the status command fails, either the \fIdevice\fR is incorrect (try another link to the device: \fI/dev/rmt0.1\fR, \fI/dev/nst0\fR, \fI/dev/tape\fR, etc.), a tape may not be in the drive, or the device does not support SCSI Security Protocol. \fBstenc\fR may read up to 100 blocks of the tape, starting at the current position, in order to determine if the volume has been encrypted.  For this reason, you should not run the status command while another process is accessing the drive. If the device returns \fIUnable to determine\fR for the volume encryption status, you may need to move to a section of the tape that contains data (i.e. \fBmt -f <device> fsr <count>\fR) or rewind the tape in order for \fBstenc\fR to output the volume status.
+If this is the only option specified, the status of the device will be displayed.  To retrieve more detailed status information, add \fB\-\-detail\fR.  If you are root and the status command fails, either the \fIdevice\fR is incorrect (try another link to the device: \fI/dev/rmt0.1\fR, \fI/dev/nst0\fR, \fI/dev/tape\fR, etc.), a tape may not be in the drive, you may be using the wrong algorithm for the tape drive (see the \fB\-a\fR option), or the device does not support SCSI Security Protocol. \fBstenc\fR may read up to 100 blocks of the tape, starting at the current position, in order to determine if the volume has been encrypted.  For this reason, you should not run the status command while another process is accessing the drive. If the device returns \fIUnable to determine\fR for the volume encryption status, you may need to move to a section of the tape that contains data (i.e. \fBmt -f <device> fsr <count>\fR) or rewind the tape in order for \fBstenc\fR to output the volume status.
 
 .TP 
 \fB\-e\fR \fBon\fR | \fBmixed\fR | \fBrawread\fR | \fBoff\fR 
@@ -46,27 +49,27 @@ Sets the encryption mode for the device specified with \fB\-f\fR option. Success
 
 \fBoff\fR - The drive will neither encrypt data sent to it, or decrypt encrypted data found on the drive.  If this command fails you may have switch your algorithm or specify a different default key size when you configure the program
 
-\fBWARNING:\fR The SCSI device will revert all encryption settings if the device is power cycled (i.e. system is rebooted). You can modify you local startup script (/etc/rc.local, /etc/rc, etc.) to set encryption at reboot.  If you do this, you will need to use the \fB\-k\fR option to prevent the system from waiting on the local console user to enter the encryption key.
+\fBWARNING:\fR The SCSI device will revert all encryption settings if the tape device is power cycled (if the tape drive is extenal, it may keep the settings even if the system is rebooted). You can modify you local startup script (/etc/rc.local, /etc/rc, etc.) to set encryption at reboot if need be.  If you do this, you will need to use the \fB\-k\fR option to prevent the system from waiting on the local console user to enter the encryption key.
 
 .TP
 \fB\-a\fR \fIindex\fR
 
-Only valid when turning encryption on (see the \fB\-e\fR option). Specifies the algorithm index to use for the device (defaults to 0).  Some devices may fail if this option isn't set to 1 (i.e. HP drives).
+Only valid when setting encryption (see the \fB\-e\fR option). Specifies the algorithm index to use for the device (defaults to 0, which can be changed using the --with-default-algorithm configure option).  Setting encryption on/off may fail on some devices if this is not the correct algorithm for the drive (i.e. HP drives use an algorithm index of 1).
 
 .TP
 \fB\-\-ckod\fR
 
-Only valid when turning encryption on (see the \fB\-e\fR option). Instructs the drive to clear its encryption keys when the volume is unmounted.
+Only valid when setting encryption (see the \fB\-e\fR option). Instructs the drive to clear its encryption keys when the volume is unmounted instead of keeping it until the drive is power cycled.  Some devices may not support this option.
 
 .TP
 \fB\-\-protect\fR | \fB\-\-unprotect\fR
 
-Only valid when turning encryption on (see the \fB\-e\fR option). Instructs the drive to \fBprotect\fR or \fBunprotect\fR any encrypted data from being raw read.  See the \fB\-e rawread\fR option.
+Only valid when setting encryption (see the \fB\-e\fR option). Instructs the drive to \fBprotect\fR or \fBunprotect\fR any encrypted data from being raw read.  See the \fB\-e rawread\fR option.  Some devices may not support these options.
 
 .TP
 \fB\-k\fR \fIfile\fR
 
-Only valid when turning encryption on (see the \fB\-e\fR option). Specifies the location of a file containing a hexadecimal key to use for encryption. The \fB\-g\fR option may be used to generate a random key file that can be used with this option.  See \fIKEY INPUT SYNTAX\fR. If you are going to use a key file, it should be owned by root ('\fBchown root\fR') and only readable by root ('\fBchmod 600\fR'). \fBstenc\fR automatically chmods key files generated with the \fB\-g\fR option.
+Only valid when turning encryption on (see the \fB\-e\fR option) or generating a new key (see the \fB\-g\fR option). When turning encryption on, this specifies the location of a key file previously generated with the \fB\-g\fR option.  When generating a new key with the \fB\-g\fR option, this specifies the key file that the new key will be saved into.  Key files should be owned by root ('\fBchown root\fR') and only readable by root ('\fBchmod 600\fR'). \fBstenc\fR automatically chmods key files generated with the \fB\-g\fR option.
 .SH KEY INPUT SYNTAX
 .TP
 
@@ -82,8 +85,8 @@ All keys should be a maximum of 256 bits (32 bytes).  \fBstenc\fR requires that 
 
 .SH EXAMPLE
 .TP 
-\fBstenc -g 256\fR
-Generate a random 256 bit key file. 
+\fBstenc -g 256 -k /etc/tape.key -kd "September Tape Key"\fR 
+Generate a random 256 bit key file with the description "September Tape Key" and save it into /etc/tape.key
 .TP 
 \fBstenc -f /dev/st0 -e on -k /etc/stenc.key\fR
 Turns on encryption on /dev/st0 using the key contained in /etc/stenc.key
@@ -94,8 +97,8 @@ Asks user to input a key in hexadecimal format and then turns on encryption for 
 \fBstenc -f /dev/st0 -e off\fR
 Turns off encryption for /dev/st0 
 .TP 
-\fBstenc -f /dev/st0\fR
-Outputs the encryption status of /dev/st0
+\fBstenc -f /dev/st0 --detail\fR
+Outputs the detailed encryption status of /dev/st0
 .TP
 \fBtail /var/log/stenc\fR
 Lists the last few key change audit entries
@@ -110,7 +113,10 @@ Key descriptors are set when using the \fB\-g\fR option or the \fB\-e\fR option.
 Written by \fBJohn Coleman\fR and \fBSamuel Martinez Jr.\fR of SunWest Educational Credit Union. 
 
 .SH REPORTING BUGS
-Report \fBstenc\fR bugs to \fIninthclowd@users.sourceforge.net\fR. 
+Report \fBstenc\fR bugs to \fIjcoleman1981@live.com\fR. 
+
+.SH PROJECT UPDATES
+Visit \fBhttp://sourceforge.net/projects/stenc/\fR for more information.
 
 .SH COPYRIGHT
 Copyright 2012 contributing authors. License GPLv2: GNU GPL version 2 <http://gnu.org/licenses/gpl.html>. This is free software: you are free  to  change  and  redistribute it. There is NO WARRANTY, to the extent permitted by law.

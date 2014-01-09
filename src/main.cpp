@@ -15,7 +15,9 @@ GNU General Public License for more details.
 */
 #include <config.h>
 #include <termios.h>
-#include <unistd.h>
+#ifdef HAVE_UNISTD_H
+ #include <unistd.h>
+#endif
 #include <iostream>
 #include <iomanip>
 #include <sstream>
@@ -31,8 +33,9 @@ GNU General Public License for more details.
 #include "keyinfo.h"
 #define LOGFILE "/var/log/stenc"
 
+
 typedef struct {
-#ifndef SWAPBIT
+#if STENC_BIG_ENDIAN == 0
 	unsigned char bit1:1;
 	unsigned char bit2:1;
 	unsigned char bit3:1;
@@ -56,7 +59,7 @@ using namespace std;
 void showUsage();
 void errorOut(string message);
 void inquiryDrive(string tapeDevice);
-void showDriveStatus(string tapeDevice);
+void showDriveStatus(string tapeDevice,bool detail);
 void showVolumeStatus(string tapeDevice);
 string randomKey(int length);
 string timestamp();
@@ -64,7 +67,6 @@ void echo(bool);
 ofstream logFile;
 //program entry point
 int main(int argc, char **argv){
-    cout<<"stenc v"<<VERSION<<" - SCSI Tape Encryption Manager"<<endl;
 
     bitcheck bc;
     memset(&bc,0,1);
@@ -78,10 +80,10 @@ int main(int argc, char **argv){
 		//this is good
 		break;
 	case 0x48:
-#ifndef SWAPBIT
-		errorOut("Swapped bit ordering detected.  Program needs to be configured with the --enable-swapbit option in order to function properly on your system");
+#if STENC_BIG_ENDIAN == 1
+		errorOut("Swapped bit ordering detected(BI).  Program needs to be configured without the --enable-swapendian option in order to function properly on your system");
 #else
-		errorOut("Swapped bit ordering detected.  Program needs to be configured with the --disable-swapbit option in order to function properly on your system");
+		errorOut("Swapped bit ordering detected(LI).  Program needs to be configured with the --enable-swapendian option in order to function properly on your system");
 #endif
 		break;
 	default:
@@ -91,8 +93,10 @@ int main(int argc, char **argv){
     }
 
     string tapeDrive="";
-    bool setting=false;
-    string keyFile;
+    int action=0; // 0 = status, 1 =setting param, 2 = generating key
+    string keyFile,keyDesc;
+    int keyLength=0;
+    bool detail=false;
     SCSIEncryptOptions drvOptions;
 
     	//First load all of the options
@@ -102,36 +106,22 @@ int main(int argc, char **argv){
         if(i+1<argc){
         	if(strncmp(argv[i+1],"-",1)!=0)nextCmd=argv[i+1];
         }
+	if(thisCmd=="--version"){ 
+	    cout<<"stenc v"<<VERSION<<" - SCSI Tape Encryption Manager"<<endl;
+	    cout<<"http://sourceforge.net/projects/stenc/"<<endl;
+	    exit(EXIT_SUCCESS);
+	    	
+        }
         if(thisCmd=="-g"){ //Check if the help flag was passed.  If it was, show usage and exit
             if(nextCmd=="")errorOut("Key size must be specified when using -g");
             i++; //skip the next argument   
-	    int keylength=atoi(nextCmd.c_str());
-	    if (keylength % 8 != 0)errorOut("Key size must be divisible by 8");
-	    keylength=keylength/8;
-            if(keylength>SSP_KEY_LENGTH){
+	    keyLength=atoi(nextCmd.c_str());
+	    if (keyLength % 8 != 0)errorOut("Key size must be divisible by 8");
+	    keyLength=keyLength/8;
+            if(keyLength>SSP_KEY_LENGTH){
 		cout<<"Warning: Keys over "<<(SSP_KEY_LENGTH*8)<<" bits cannot be used by this program!"<<endl;
-	    }    
-	    string newkey=randomKey(keylength);
-	    string keyfilename,keydesc;
-	    cout<<"Filename to save key into: ";
-	    getline(cin,keyfilename);
-            cout<<"Key description (optional): ";
-            getline(cin,keydesc);
-	    if(keydesc.size()>SSP_UKAD_LENGTH){
-		errorOut("Description too long!");
-	    }
-            ofstream kf;
-            kf.open(keyfilename.c_str(),ios::trunc);
-            if(!kf.is_open()){
-		errorOut("Could not open '"+keyfilename+"' for writing.");
-
-            }
-	    kf<<newkey<<keydesc;
-	    kf.close();
-            cout<<"Random key saved into '"<<keyfilename<<"'"<<endl;
-            chmod(keyfilename.c_str(),0600);
-            cout<<"Permissions of keyfile set to 600"<<endl;
-            exit(EXIT_SUCCESS);
+	    }   
+	    action=2; //generating key 
         }
 	else if(thisCmd=="-e"){
 		if(nextCmd=="")errorOut("Key file not specified after -k option");
@@ -141,39 +131,44 @@ int main(int argc, char **argv){
                 else if(nextCmd=="off")drvOptions.cryptMode=CRYPTMODE_OFF;//encrypt, read encrypted and unencrypted data
                 else errorOut("Unknown encryption mode '"+nextCmd+"'");//encrypt, read encrypted and unencrypted data
 		i++; //skip the next argument				
-		setting=true;
+		action=1;
 	}
         else if(thisCmd=="-f"){
             if(nextCmd=="")errorOut("Device not specified after -f option.");
             tapeDrive=nextCmd; //set the tape drive
 	    i++; //skip the next argument
         }
-	else if(setting){
-        	if(thisCmd=="-k"){
+	else if(thisCmd=="-k"){
 	            if(nextCmd=="")errorOut("Key file not specified after -k option");
         	    keyFile=nextCmd; //set the key file
 		    i++; //skip the next argument
-        	}
-		else if(thisCmd=="--protect"){
-		    if(drvOptions.rdmc==RDMC_UNPROTECT)errorOut("'--protect' cannot be specified at the same time as '--unprotect'");
-		    drvOptions.rdmc=RDMC_PROTECT;
-                }
-                else if(thisCmd=="--unprotect"){
-		    if(drvOptions.rdmc==RDMC_PROTECT)errorOut("'--unprotect' cannot be specified at the same time as '--protect'");
-                    drvOptions.rdmc=RDMC_UNPROTECT;
-                }
-                else if(thisCmd=="--ckod"){
-                    drvOptions.CKOD=true;
-                }
-		else if(thisCmd=="-a"){
-        	    if(nextCmd=="")errorOut("You must specify a numeric algorithm index when using the -a flag");
-            	    drvOptions.algorithmIndex=atoi(nextCmd.c_str()); 
-		    i++; //skip the next argument
-		}
-		else{
-			errorOut("Unknown command '"+thisCmd+"'");
-		}
-			
+        }
+        else if(thisCmd=="-kd"){
+                    if(nextCmd=="")errorOut("Key description not specified after the -kd option");
+                    keyDesc=nextCmd; //set the key file
+		    if(keyDesc.size()>SSP_UKAD_LENGTH){
+                	errorOut("Key description too long!");
+            	    }
+                    i++; //skip the next argument
+        }
+	else if(thisCmd=="--protect"){
+	    if(drvOptions.rdmc==RDMC_UNPROTECT)errorOut("'--protect' cannot be specified at the same time as '--unprotect'");
+	    drvOptions.rdmc=RDMC_PROTECT;
+        }
+        else if(thisCmd=="--unprotect"){
+		if(drvOptions.rdmc==RDMC_PROTECT)errorOut("'--unprotect' cannot be specified at the same time as '--protect'");
+                drvOptions.rdmc=RDMC_UNPROTECT;
+        }
+        else if(thisCmd=="--ckod"){
+        	drvOptions.CKOD=true;
+        }
+        else if(thisCmd=="--detail"){
+                detail=true;
+        }
+	else if(thisCmd=="-a"){
+		if(nextCmd=="")errorOut("You must specify a numeric algorithm index when using the -a flag");
+                drvOptions.algorithmIndex=atoi(nextCmd.c_str()); 
+	        i++; //skip the next argument
         }
 	else{
 		errorOut("Unknown command '"+thisCmd+"'");
@@ -181,6 +176,26 @@ int main(int argc, char **argv){
 
     }
 
+    if(action==2){//generate key
+	    if(keyFile==""){
+		errorOut("Specify file to save into with the -k argument.");
+	    }
+
+	    string newkey=randomKey(keyLength);
+            ofstream kf;
+	    umask(077); //make sure that no one else can read the new key file we are creating
+            kf.open(keyFile.c_str(),ios::trunc);
+            if(!kf.is_open()){
+		errorOut("Could not open '"+keyFile+"' for writing.");
+
+            }
+	    kf<<newkey<<keyDesc;
+	    kf.close();
+            cout<<"Random key saved into '"<<keyFile<<"'"<<endl;
+            chmod(keyFile.c_str(),0600);
+            cout<<"Permissions of keyfile set to 600"<<endl;
+            exit(EXIT_SUCCESS);
+    }
     //validate the tape device
     if(tapeDrive==""){
         errorOut("Tape drive device must be specified with the -f option");
@@ -209,12 +224,14 @@ int main(int argc, char **argv){
     }
     chmod(LOGFILE,0600);	
  
-    if(!setting){
+    if(action==0){
 	cout<<"Status for "<<tapeDrive<<endl;
 	cout<<"--------------------------------------------------"<<endl;
-	inquiryDrive(tapeDrive);
-	showDriveStatus(tapeDrive);
-	showVolumeStatus(tapeDrive);
+	if(detail)
+		inquiryDrive(tapeDrive);
+	showDriveStatus(tapeDrive,detail);
+	if(detail)
+		showVolumeStatus(tapeDrive);
 	exit(EXIT_SUCCESS);
     }
    
@@ -223,7 +240,6 @@ int main(int argc, char **argv){
 	    if(keyFile==""){
 		    string p1="01";
 		    string p2="02";
-		    string kdesc="";
 		    bool done=false;
 		    while(!done){
 			    cout<<"Enter key in hex format: ";
@@ -241,15 +257,6 @@ int main(int argc, char **argv){
 			    }else{
 				ki.load(p1);
 				if(ki.valid){
-					bool descvalid=false;
-					while(!descvalid){
-						cout<<"Key description (optional): ";
-        	                    		getline(cin,kdesc);
-						cout<<endl;
-						descvalid=true;
-						if(kdesc.size()>SSP_UKAD_LENGTH)descvalid=false;
-						if(!descvalid)cout<<"Description too long!"<<endl;
-					}
 					cout<<"Set encryption using this key? [y/n]: ";
 					string ans="";
 					getline(cin,ans);
@@ -259,23 +266,21 @@ int main(int argc, char **argv){
 				}else cout<<"Invalid key!"<<endl;
 			    }
 		    }
-		    drvOptions.keyName=kdesc;
+		    drvOptions.keyName=keyDesc;
 		    
 	    }else{
 		    //set keyInput here
-		    string keyInput,kdesc;
+		    string keyInput;
 		    ifstream myfile(keyFile.c_str());
 		    if (myfile.is_open())
 		    {
 			  getline (myfile,keyInput);
-			  getline (myfile,kdesc);
+			  getline (myfile,keyDesc);
 			  myfile.close();
 			  ki.load(keyInput);
 			  if(!ki.valid)
 				errorOut("Invalid key found in '"+keyFile+"'");
-			  if(kdesc.size()>SSP_UKAD_LENGTH)
-				errorOut("Key description in '"+keyFile+"' too long!");
-			  drvOptions.keyName=kdesc;
+			  drvOptions.keyName=keyDesc;
 		    }else errorOut("Could not open '"+keyFile+"' for reading"); 
 			   
 	    }
@@ -336,7 +341,7 @@ void errorOut(string message){
 
 //shows the command usage
 void showUsage(){
-    cout<<"Usage: stenc -g <length> | -f <device> [-e <on/mixed/rawread/off> [-k <file> ] [-a <number>] [--protect | --unprotect] [--ckod] ]"<<endl;
+    cout<<"Usage: stenc --version | -g <length> -k <file> [-kd <description>] | -f <device> [--detail] [-e <on/mixed/rawread/off> [-k <file>] [-kd <description>] [-a <index>] [--protect | --unprotect] [--ckod] ]"<<endl;
     cout<<"Type 'man stenc' for more information."<<endl;
 }
 void inquiryDrive(string tapeDevice){
@@ -355,51 +360,79 @@ void inquiryDrive(string tapeDevice){
 }
 
 
-void showDriveStatus(string tapeDrive){
+void showDriveStatus(string tapeDrive,bool detail){
         SSP_DES* opt=SSPGetDES(tapeDrive);
 	if(opt==NULL)return;
-        cout<<left<<setw(25)<<"Data Output:";
-	switch ((int)opt->des.decryptionMode){
-		case 0x0:
-			cout<<"Not decrypting"<<endl;
-			cout<<setw(25)<<" "<<"Raw encrypted data not outputted"<<endl;
-			break;
-                case 0x1:
-                        cout<<"Not decrypting"<<endl;
-                        cout<<setw(25)<<" "<<"Raw encrypted data outputted"<<endl;
-                        break;
-		case 0x2:
-			cout<<"Decrypting"<<endl;
-			cout<<setw(25)<<" "<<"Unencrypted data not outputted"<<endl;
-			break;
-		case 0x3:
-			cout<<"Decrypting"<<endl;
-			cout<<setw(25)<<" "<<"Unencrypted data outputted"<<endl;
-			break;
-		default:
-			cout<<"Unknown '0x"<<hex<<(int)opt->des.decryptionMode<<"' "<<endl;
-			break;
-	}
-        cout<<setw(25)<<"Data Input:";
-	switch((int)opt->des.encryptionMode){
-		case 0x0:
-			cout<<"Not encrypting"<<endl;
-			break;
-		case 0x2:
-			cout<<"Encrypting"<<endl;
-			break;
-		default:
-			cout<<"Unknown result '0x"<<hex<<(int)opt->des.encryptionMode<<"'"<<endl;
-			break;
-	}
-	if(opt->des.RDMD==1){
-                        cout<<setw(25)<<" "<<"Protecting from raw read"<<endl;
-        }
+	string emode="unknown";
+	cout<<left<<setw(25)<<"Drive Encryption:";
+	if(
+		(int)opt->des.encryptionMode==0x2 && //encrypt
+		(int)opt->des.decryptionMode==0x2 //read only encrypted data
+	)
+		emode="on";
+	if(
+		(int)opt->des.encryptionMode==0x2 && //encrypt
+		(int)opt->des.decryptionMode==0x3 //read encrypted and unencrypted
+	)
+		emode="mixed";
 
+        if(
+                (int)opt->des.encryptionMode==0x2 && //encrypt
+                (int)opt->des.decryptionMode==0x1 //read encrypted and unencrypted
+        )
+	        emode="rawread";
 
-        cout<<setw(25)<<"Key Instance Counter:"<<dec<<BSLONG(opt->des.keyInstance)<<endl;
-	if(opt->des.algorithmIndex!=0){
-		cout<<setw(25)<<"Encryption Algorithm:"<<hex<<(int)opt->des.algorithmIndex<<endl;
+        if(
+                (int)opt->des.encryptionMode==0x0 && //encrypt
+                (int)opt->des.decryptionMode==0x0  //read encrypted and unencrypted
+        )
+	        emode="off";
+
+       cout<<emode<<endl;
+       if(detail){
+		cout<<left<<setw(25)<<"Drive Output:";
+		switch ((int)opt->des.decryptionMode){
+			case 0x0:
+				cout<<"Not decrypting"<<endl;
+				cout<<setw(25)<<" "<<"Raw encrypted data not outputted"<<endl;
+				break;
+			case 0x1:
+				cout<<"Not decrypting"<<endl;
+				cout<<setw(25)<<" "<<"Raw encrypted data outputted"<<endl;
+				break;
+			case 0x2:
+				cout<<"Decrypting"<<endl;
+				cout<<setw(25)<<" "<<"Unencrypted data not outputted"<<endl;
+				break;
+			case 0x3:
+				cout<<"Decrypting"<<endl;
+				cout<<setw(25)<<" "<<"Unencrypted data outputted"<<endl;
+				break;
+			default:
+				cout<<"Unknown '0x"<<hex<<(int)opt->des.decryptionMode<<"' "<<endl;
+				break;
+		}
+		cout<<setw(25)<<"Drive Input:";
+		switch((int)opt->des.encryptionMode){
+			case 0x0:
+				cout<<"Not encrypting"<<endl;
+				break;
+			case 0x2:
+				cout<<"Encrypting"<<endl;
+				break;
+			default:
+				cout<<"Unknown result '0x"<<hex<<(int)opt->des.encryptionMode<<"'"<<endl;
+				break;
+		}
+		if(opt->des.RDMD==1){
+				cout<<setw(25)<<" "<<"Protecting from raw read"<<endl;
+		}
+		
+
+		cout<<setw(25)<<"Key Instance Counter:"<<dec<<BSLONG(opt->des.keyInstance)<<endl;
+		if(opt->des.algorithmIndex!=0){
+			cout<<setw(25)<<"Encryption Algorithm:"<<hex<<(int)opt->des.algorithmIndex<<endl;
+		}
 	}
 	if(opt->kads.size()>0){
 		for(unsigned int i=0;i<opt->kads.size();i++){

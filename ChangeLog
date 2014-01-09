@@ -1,3 +1,13 @@
+2014-01-06  John Coleman  <jcoleman1981@live.com>
+* Version upgraded to 1.0.7
+* Included unistd.h in scsiencrypt.cpp to prevent compile issue on ArchLinux per report by fukawi2@gmail.com
+* Remove the --enable-swapbit and modified code to use the BYTE_ORDER and__BYTE_ORDER macros
+* -kd argument added to specify a uKAD via command line
+* -k option now required to set the output key file when using the -g option
+* status is now simplified, --detail argument added to restore previous behavior
+* the program now sets the umask when creating a new key file to prevent other users from being able to read it
+* Some devices will issue an I/O error on the first command sent to the device after a tape is inserted.  Modified the program to retry 1 time if the first command fails.
+
 2012-02-29  John Coleman  <ninthclowd@users.sourceforge.net>
 * Version upgraded to 1.0.6
 * The --protect option now should work properly and the --unprotect option has been added.  If you specify neither, the drive will use it's default.

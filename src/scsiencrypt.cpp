@@ -21,7 +21,6 @@ GNU General Public License for more details.
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/ioctl.h>
-
 #ifdef OS_AIX //AIX
  #define _LINUX_SOURCE_COMPAT
  #include <sys/scsi.h>
@@ -40,12 +39,16 @@ GNU General Public License for more details.
 #include <sys/mtio.h>
 #include "scsiencrypt.h"
 
+#ifdef HAVE_UNISTD_H
+ #include <unistd.h> //added for archlinux support per fukawi2@gmail.com
+#endif
 
 #define SSP_SPIN_OPCODE             0XA2
 #define SSP_SPOUT_OPCODE            0XB5
 #define SSP_SP_CMD_LEN              12
 #define SSP_SP_PROTOCOL_TDE         0X20 
 
+#define RETRYCOUNT 1
 
 #define BSINTTOCHAR(x)     (unsigned char)((x & 0xff000000)>>24), (unsigned char)((x & 0x00ff0000)>>16),(unsigned char)((x & 0x0000ff00)>>8),(unsigned char)(x & 0x000000ff)
 
@@ -64,7 +67,7 @@ typedef struct { //structure for setting data encryption
         unsigned char pageCode		[2];
         unsigned char length		[2];
 	
-#ifdef SWAPBIT
+#if STENC_BIG_ENDIAN == 1
         unsigned char scope		:3;
         unsigned char res_bits_1	:4; 
         unsigned char lock		:1;
@@ -74,7 +77,7 @@ typedef struct { //structure for setting data encryption
         unsigned char scope             :3;
 #endif
 
-#ifdef SWAPBIT
+#if STENC_BIG_ENDIAN == 1
         unsigned char CEEM		:2;
         unsigned char RDMC		:2;
         unsigned char sdk		:1;
@@ -292,7 +295,7 @@ bool SCSIWriteEncryptOptions(string tapeDevice, SCSIEncryptOptions* eOptions){
 bool SCSIExecute(string tapedrive, unsigned char* cmd_p,int cmd_len,unsigned char* dxfer_p,int dxfer_len, bool cmd_to_device, bool show_error)
 {
 	const char* tapedevice=tapedrive.c_str();
-	int sg_fd,eresult,sresult;
+	int sg_fd,eresult,sresult,ioerr,retries;
 	SCSI_PAGE_SENSE* sd=new SCSI_PAGE_SENSE;
 	memset(sd,0,sizeof(SCSI_PAGE_SENSE));
 	   
@@ -317,15 +320,17 @@ bool SCSIExecute(string tapedrive, unsigned char* cmd_p,int cmd_len,unsigned cha
 	cmdio.status_validity=SC_SCSI_ERROR;
 	cmdio.flags=(cmd_to_device)?B_WRITE:B_READ;
 
-	errno=0;
-	eresult=ioctl(sg_fd, STIOCMD, &cmdio);
-    	sresult=(int)cmdio.scsi_bus_status;
+	retries=0;
+	do{
+		errno=0;
+		eresult=ioctl(sg_fd, STIOCMD, &cmdio);
+    		sresult=(int)cmdio.scsi_bus_status;
+		if(eresult!=0)
+			ioerr=errno;
+		retries++;
+	}while(errno!=0 && retries<=RETRYCOUNT);
 	
-	if(eresult!=0 && show_error){
-		readIOError(errno);
-	}
-	
-							       
+								       
 	if(sresult==SC_CHECK_CONDITION){ //get the sense data
 		
 		struct sc_iocmd scmdio;
@@ -340,15 +345,7 @@ bool SCSIExecute(string tapedrive, unsigned char* cmd_p,int cmd_len,unsigned cha
 		scmdio.flags=B_READ;
 
 		errno=0;
-		if(!ioctl(sg_fd, STIOCMD, &scmdio)){
-			if(show_error)
-				outputSense(sd);	
-		}else{
-			if(show_error){
-				cout<<"Error retrieving sense: ";
-				readIOError(errno);
-			}
-		}
+		ioctl(sg_fd, STIOCMD, &scmdio);
 
 	}
 
@@ -373,18 +370,17 @@ bool SCSIExecute(string tapedrive, unsigned char* cmd_p,int cmd_len,unsigned cha
         cmdio.mx_sb_len=sizeof(SCSI_PAGE_SENSE);
 	cmdio.timeout = SCSI_TIMEOUT; 
 	cmdio.interface_id = 'S';
+        retries=0;
+        do{
+                errno=0;
+		eresult=ioctl(sg_fd, SG_IO, &cmdio);
+                if(eresult!=0)
+                        ioerr=errno;
+                retries++;
+        }while(errno!=0 && retries<=RETRYCOUNT);
 
-	errno=0;
-	eresult=ioctl(sg_fd, SG_IO, &cmdio);
 
-    	if(eresult!=0){
-		readIOError(errno);
-	}
 	sresult=cmdio.status;
-	if(sresult!=0 && show_error){ 
-                 outputSense(sd);
-
-	}
 #endif
 #ifdef DEBUGSCSI
 	cout<<"SCSI Command: ";
@@ -401,13 +397,24 @@ bool SCSIExecute(string tapedrive, unsigned char* cmd_p,int cmd_len,unsigned cha
 	cout<<endl;
 #endif
 	close(sg_fd);
+	
 
-	delete sd;
+	bool retval=true;	
 
-	if(eresult!=0||sresult!=0){
-             return false;
+ 	if(eresult!=0){
+		if(show_error)
+	                readIOError(ioerr);		
+		retval=false;
+
+        }
+
+	if(sresult!=0){
+ 		if(show_error)
+                	outputSense(sd);
+                retval=false;
 	}
-     	return true;
+	delete sd;
+     	return retval;
 }
 void byteswap(unsigned char* array,int size,int value){
 	switch(size){

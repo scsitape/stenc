@@ -42,12 +42,47 @@ GNU General Public License for more details.
 //macro for a byte swapped int
 #define BSLONG( x )    ((unsigned int)( (int)( x[0] << 24 ) + (int)( x[1] << 16 ) + (int)( x[2] << 8 ) + (int)( x[3] ) ))
 
+#ifdef HAVE_SYS_MACHINE_H
+ #include <sys/machine.h>
+#endif
+
+#ifdef HAVE_SYS_TYPES_H 
+ #include <sys/types.h>
+#endif
+
+#ifdef BYTE_ORDER
+ #define STENC_BYTE_ORDER BYTE_ORDER
+#endif
+#ifndef STENC_BYTE_ORDER
+ #ifdef __BYTE_ORDER
+  #define STENC_BYTE_ORDER __BYTE_ORDER
+ #endif
+#endif
+
+#ifdef BIG_ENDIAN
+ #define STENC_TYPE_BIG_ENDIAN BIG_ENDIAN
+#endif
+#ifndef STENC_TYPE_BIG_ENDIAN
+ #ifdef __BIG_ENDIAN
+  #define STENC_TYPE_BIG_ENDIAN __BIG_ENDIAN
+ #endif
+#endif
+
+#if STENC_BYTE_ORDER == STENC_TYPE_BIG_ENDIAN
+ #define STENC_BIG_ENDIAN 1
+#else
+ #define STENC_BIG_ENDIAN 0
+#endif
+
+
+
 
 
 typedef struct {
     unsigned char pageCode		[2]; 
     unsigned char length		[2];
-#ifdef SWAPBIT
+
+#if STENC_BIG_ENDIAN == 1
     unsigned char nexusScope 		:3;
     unsigned char res_bits_1		:2;
     unsigned char keyScope		:3;
@@ -60,7 +95,7 @@ typedef struct {
     unsigned char decryptionMode;
     unsigned char algorithmIndex;
     unsigned char keyInstance		[4];
-#ifdef SWAPBIT
+#if STENC_BIG_ENDIAN == 1
     unsigned char res_bits_2		:1;
     unsigned char parametersControl	:3;
     unsigned char VCELB			:1;
@@ -82,7 +117,7 @@ typedef struct {
 
 typedef struct {
     unsigned char type;
-#ifdef SWAPBIT
+#if STENC_BIG_ENDIAN == 1
     unsigned char res_bits_1 		:5;
     unsigned char authenticated 	:3;
 #else
@@ -104,7 +139,7 @@ typedef struct {
     unsigned char pageCode		[2];
     unsigned char length		[2];
     unsigned char log_obj_num		[8];
-#ifdef SWAPBIT    
+#if STENC_BIG_ENDIAN == 1    
     unsigned char compressionStatus 	:4;
     unsigned char encryptionStatus 	:4;
 #else
@@ -113,7 +148,7 @@ typedef struct {
 #endif
 	    
     unsigned char algorithmIndex;
-#ifdef SWAPBIT    
+#if STENC_BIG_ENDIAN == 1    
     unsigned char res_bits_1 		:6;
     unsigned char EMES 			:1;
     unsigned char RDMDS 		:1;
@@ -129,7 +164,7 @@ typedef struct {
 
 typedef struct{
     
-#ifndef SWAPBIT
+#if STENC_BIG_ENDIAN == 0
     unsigned char peripheralQualifier	:3;
     unsigned char periphrealDeviceType	:5;
 #else
@@ -137,7 +172,7 @@ typedef struct{
     unsigned char peripheralQualifier	:3;
 #endif
 
-#ifndef SWAPBIT
+#if STENC_BIG_ENDIAN == 0
     unsigned char RMB			:1;
     unsigned char res_bits_1		:7;
 #else
@@ -146,7 +181,7 @@ typedef struct{
 #endif
     unsigned char Version		[1];
 
-#ifndef SWAPBIT
+#if STENC_BIG_ENDIAN == 0
     unsigned char obs_bits_1		:2;
     unsigned char NORMACA		:1;
     unsigned char HISUP			:1;
@@ -160,7 +195,7 @@ typedef struct{
 
     unsigned char additionalLength	[1];
     
-#ifndef SWAPBIT
+#if STENC_BIG_ENDIAN == 0
     unsigned char SCCS			:1;
     unsigned char ACC			:1;
     unsigned char TPGS			:2;
@@ -177,7 +212,7 @@ typedef struct{
 #endif
 
 
-#ifndef SWAPBIT
+#if STENC_BIG_ENDIAN == 0
     unsigned char obs_bits_2		:1;
     unsigned char ENCSERV		:1;
     unsigned char VS			:1;
@@ -196,7 +231,7 @@ typedef struct{
 #endif
 
 
-#ifndef SWAPBIT
+#if STENC_BIG_ENDIAN == 0
     unsigned char obs_bits_4		:2;
     unsigned char WBUS16		:1;
     unsigned char SYNC			:1;
@@ -218,7 +253,7 @@ typedef struct{
     unsigned char SN			[7];
     unsigned char venderUnique		[12];
 
-#ifndef SWAPBIT
+#if STENC_BIG_ENDIAN == 0
     unsigned char res_bits_3		:4;
     unsigned char CLOCKING		:2;
     unsigned char QAS			:1;
@@ -236,7 +271,7 @@ typedef struct{
     unsigned char copyright		[1];																			
 } SCSI_PAGE_INQ; //device inquiry response
 typedef struct{
-#ifdef SWAPBIT
+#if STENC_BIG_ENDIAN == 1
 	unsigned char valid		:1;
 	unsigned char responseCode 	:7;
 #else
@@ -245,7 +280,7 @@ typedef struct{
 #endif	
 	unsigned char res_bits_1;
 
-#ifdef SWAPBIT
+#if STENC_BIG_ENDIAN == 1
 	unsigned char filemark		:1;
 	unsigned char EOM		:1;
 	unsigned char ILI		:1;
@@ -264,7 +299,7 @@ typedef struct{
 	unsigned char addSenseCode;
 	unsigned char addSenseCodeQual;
 	unsigned char fieldRepUnitCode;
-#ifdef SWAPBIT
+#if STENC_BIG_ENDIAN == 1
 	unsigned char sim		:3; // system information message 
 	unsigned char bpv		:1; // bit pointer valid 
 	unsigned char resvd2		:2; // reserved 
