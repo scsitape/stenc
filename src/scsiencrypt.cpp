@@ -21,27 +21,37 @@ GNU General Public License for more details.
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/ioctl.h>
-#ifdef OS_AIX //AIX
+
+#ifdef HAVE_UNISTD_H
+ #include <unistd.h>
+#endif
+#ifdef HAVE_STDLIB_H
+ #include <stdlib.h>
+#endif
+#ifdef HAVE_STRING_H
+ #include <string.h>
+#endif
+
+#if defined(OS_LINUX)
+ #include <scsi/sg.h>
+ #include <scsi/scsi.h>
+ #define SCSI_TIMEOUT 5000
+#elif defined(OS_FREEBSD)
+ #include <cam/scsi/scsi_sg.h>
+ #define SCSI_TIMEOUT 5000
+#elif defined(OS_AIX)
  #define _LINUX_SOURCE_COMPAT
  #include <sys/scsi.h>
  #include <sys/scsi_buf.h>
  #include <sys/tape.h>
  #include <sys/Atape.h>
  #define SCSI_TIMEOUT 5
-#else //Linux
- #include <scsi/sg.h>
- #include <scsi/scsi.h>
- #define SCSI_TIMEOUT 5000
- #include <stdlib.h>
- #include <string.h>
- #include <fstream>
+#else
+ #error "OS type is not set"
 #endif
+
 #include <sys/mtio.h>
 #include "scsiencrypt.h"
-
-#ifdef HAVE_UNISTD_H
- #include <unistd.h> //added for archlinux support per fukawi2@gmail.com
-#endif
 
 #define SSP_SPIN_OPCODE             0XA2
 #define SSP_SPOUT_OPCODE            0XB5
@@ -298,8 +308,40 @@ bool SCSIExecute(string tapedrive, unsigned char* cmd_p,int cmd_len,unsigned cha
 	int sg_fd,eresult,sresult,ioerr,retries;
 	SCSI_PAGE_SENSE* sd=new SCSI_PAGE_SENSE;
 	memset(sd,0,sizeof(SCSI_PAGE_SENSE));
-	   
-#ifdef OS_AIX //AIX System
+
+#if defined(OS_LINUX) || defined(OS_FREEBSD)  // Linux or FreeBSD System
+        errno=0;
+        sg_fd = open(tapedevice, O_RDONLY);
+        if( sg_fd==-1){
+                cerr<<"Could not open device '"<<tapedevice<<"': ";
+                readIOError(errno);
+                exit(EXIT_FAILURE);
+        }
+
+
+        sg_io_hdr cmdio;
+        memset(&cmdio,0,sizeof(sg_io_hdr));
+        cmdio.cmd_len = cmd_len;
+        cmdio.dxfer_direction =(cmd_to_device)?SG_DXFER_TO_DEV:SG_DXFER_FROM_DEV;
+        cmdio.dxfer_len = dxfer_len;
+        cmdio.dxferp = dxfer_p;
+        cmdio.cmdp = cmd_p;
+        cmdio.sbp = (unsigned char*)sd;
+        cmdio.mx_sb_len=sizeof(SCSI_PAGE_SENSE);
+        cmdio.timeout = SCSI_TIMEOUT;
+        cmdio.interface_id = 'S';
+        retries=0;
+        do{
+                errno=0;
+                eresult=ioctl(sg_fd, SG_IO, &cmdio);
+                if(eresult!=0)
+                        ioerr=errno;
+                retries++;
+        }while(errno!=0 && retries<=RETRYCOUNT);
+
+
+        sresult=cmdio.status;
+#elif defined(OS_AIX)  // AIX System
 
 	errno=0;
 	sg_fd = openx((char*)tapedevice, O_RDONLY , NULL, SC_DIAGNOSTIC);
@@ -347,40 +389,9 @@ bool SCSIExecute(string tapedrive, unsigned char* cmd_p,int cmd_len,unsigned cha
 		errno=0;
 		ioctl(sg_fd, STIOCMD, &scmdio);
 
-	}
-
-#else //Linux routine
-	errno=0;
-	sg_fd = open(tapedevice, O_RDONLY);
-	if( sg_fd==-1){
-		cerr<<"Could not open device '"<<tapedevice<<"': ";
-		readIOError(errno);
-		exit(EXIT_FAILURE);
-	}	
-	
-
-	sg_io_hdr_t cmdio;
-	memset(&cmdio,0,sizeof(sg_io_hdr_t));
-	cmdio.cmd_len = cmd_len;
-	cmdio.dxfer_direction =(cmd_to_device)?SG_DXFER_TO_DEV:SG_DXFER_FROM_DEV;
-	cmdio.dxfer_len = dxfer_len;
-	cmdio.dxferp = dxfer_p;
-	cmdio.cmdp = cmd_p;
-        cmdio.sbp = (unsigned char*)sd;
-        cmdio.mx_sb_len=sizeof(SCSI_PAGE_SENSE);
-	cmdio.timeout = SCSI_TIMEOUT; 
-	cmdio.interface_id = 'S';
-        retries=0;
-        do{
-                errno=0;
-		eresult=ioctl(sg_fd, SG_IO, &cmdio);
-                if(eresult!=0)
-                        ioerr=errno;
-                retries++;
-        }while(errno!=0 && retries<=RETRYCOUNT);
-
-
-	sresult=cmdio.status;
+        }
+#else
+ #error "OS type is not set"
 #endif
 #ifdef DEBUGSCSI
 	cout<<"SCSI Command: ";
@@ -486,16 +497,17 @@ bool moveTape(std::string tapeDevice,int count,bool dirForward){
        }
        errno=0;
        bool retval=true;
-#ifdef OS_LINUX
+#if defined(OS_LINUX) || defined(OS_FREEBSD)  // Linux or FreeBSD System
 	 
        mt_command.mt_op = (dirForward)?MTFSR:MTBSR;
        mt_command.mt_count = count;
        ioctl(sg_fd, MTIOCTOP, &mt_command);
-#else
+#elif defined(OS_AIX)
        mt_command.st_op = (dirForward)?MTFSR:MTBSR;
        mt_command.st_count = count;
        ioctl(sg_fd, STIOCTOP, &mt_command);
-
+#else
+ #error "OS type is not set"
 #endif
        if(errno!=0)retval=false;
        

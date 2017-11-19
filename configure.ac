@@ -48,13 +48,20 @@ AC_ARG_WITH([default-key-size],
 AC_MSG_CHECKING(your OS)
 system=`uname`
 case $system in
-        Linux)
-	        AC_DEFINE(OS_LINUX,1,"")
-	        AC_MSG_RESULT(Linux)
-	        ;;
+	Linux)
+		AC_DEFINE(OS_LINUX,1,"")
+		AC_MSG_RESULT(Linux)
+		;;
+	FreeBSD)
+		AC_DEFINE(OS_FREEBSD,1,"")
+		AC_MSG_RESULT(FreeBSD)
+		;;
 	AIX)
-        	AC_DEFINE(OS_AIX,1,"")
+		AC_DEFINE(OS_AIX,1,"")
 		AC_MSG_RESULT(AIX)
+		;;
+	*)
+		AC_MSG_ERROR(unknown OS type: $system)
 		;;
 esac
 
