@@ -1,10 +1,10 @@
-AC_INIT(src/main.cpp)
-
 PACKAGE=stenc
 VERSION=1.0.7
 
+AC_INIT($PACKAGE, $VERSION)
+AC_CONFIG_SRCDIR([src/main.cpp])
+AM_INIT_AUTOMAKE
 
-AM_INIT_AUTOMAKE($PACKAGE, $VERSION)
 AC_CONFIG_HEADERS([config.h])
 AC_CHECK_HEADER([sys/types.h])
 AC_CHECK_HEADER([sys/machine.h])
@@ -44,9 +44,6 @@ AC_ARG_WITH([default-key-size],
             [AS_HELP_STRING([--with-default-key-size=<bytes>],[the default key size for your drive.  Only used when turning off encryption.  Defaults to 32 (256 bit)])],
 	    [AC_DEFINE_UNQUOTED([DEFAULT_KEYSIZE],$withval,"") AC_MSG_RESULT($withval)],
 	    [AC_DEFINE([DEFAULT_KEYSIZE],32,"") AC_MSG_RESULT(32)])
-
-	
-				     
 
 AC_MSG_CHECKING(your OS)
 system=`uname`
