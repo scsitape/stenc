@@ -184,6 +184,7 @@ SSP_NBES* SSPGetNBES(string tapeDevice,bool retry){
 			if(status->nbes.encryptionStatus!=0x01)break;
 			if(moves>=MAX_TAPE_READ_BLOCKS)break;
 			delete status;
+			status=NULL; //double free bug fix provided by Adam Nielsen
 			if(!moveTape(tapeDevice,1,true))break;
 			moves++;
 			status=SSPGetNBES(tapeDevice,false);
