@@ -1,5 +1,5 @@
 Stenc
-#####
+-----
 
 SCSI Tape Encryption Manager - Manages encryption on LTO tape drives (starting with generation 4) with hardware-based encryption. 
 Program should work on any other SSP capable tape drives. Built specifically for Linux and AIX. 
