@@ -1,3 +1,7 @@
+2018-02-13 Jonas Stein <news@jonasstein.de>
+* Merged patches from various sources
+* move from SF to github in cooperation with John Coleman
+
 2017-11-20 Adam Nielsen <malvineous@shikadi.net>
 * Add patch which fixes double free bug (import from upstream git)
 
@@ -5,8 +9,7 @@
 * Add patches which enable compilation of stenc on kfreebsd architecture. The changes include addition of FreeBSD detection to configure.ac and modification of source code to use FreeBSD specific includes.
 * Bump standards version to 4.1.1. Switch to the https form of the copyright-format URL in the Format field of debian/copyright file.
 * Add patches to fix lintian warnings (fix typo in manpage and rename configure.in to configure.ac)
-* Add patch to fix inclusion of standard headers on non-linux systems (Closes:
-Debian bug 881781)
+* Add patch to fix inclusion of standard headers on non-linux systems (Closes: Debian bug 881781)
 
 2014-01-06  John Coleman  <jcoleman1981@live.com>
 * Version upgraded to 1.0.7
