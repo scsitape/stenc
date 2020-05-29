@@ -262,8 +262,6 @@ bool SCSIWriteEncryptOptions(string tapeDevice, SCSIEncryptOptions* eOptions){
 	if(eOptions->keyName!=""){
 		SSP_KAD kad;
 		memset(&kad,0,sizeof(kad));
-		kad.type=0x00;
-		kad.authenticated=0;
 		//set the descriptor length to the length of the keyName
 		byteswap((unsigned char*)&kad.descriptorLength,2,eOptions->keyName.size());
 		
