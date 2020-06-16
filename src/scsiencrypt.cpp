@@ -566,7 +566,7 @@ void readIOError(int err){
 #endif
 		default:
 			if(errno!=0){
-				cerr<<"0x"<<hex<<errno<<endl;
+				cerr<<"0x"<<hex<<errno<<" "<<strerror(errno)<<endl;
 
 			}
 	}
