@@ -1,3 +1,7 @@
+2020-06-16 Jonas Stein <news@jonasstein.de>
+* Version upgraded to 1.0.8
+* Merged patches to fix make files and provide more error messages
+
 2018-02-13 Jonas Stein <news@jonasstein.de>
 * Merged patches from various sources
 * move from SF to github in cooperation with John Coleman
