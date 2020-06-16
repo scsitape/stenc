@@ -1,9 +1,6 @@
-PACKAGE=stenc
-VERSION=1.0.7
-
-AC_INIT($PACKAGE, $VERSION)
+AC_INIT([stenc], [1.0.7])
 AC_CONFIG_SRCDIR([src/main.cpp])
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([foreign])
 
 AC_CONFIG_HEADERS([config.h])
 AC_CHECK_HEADER([sys/types.h])
