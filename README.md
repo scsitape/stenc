@@ -19,11 +19,13 @@ Features
 Get the source code and compile
 -------------------------------
 
-  git clone git@github.com:scsitape/stenc.git
-  cd stenc/
-  autoreconf --install
-  ./configure
-  make
+```
+git clone git@github.com:scsitape/stenc.git
+cd stenc/
+autoreconf --install
+./configure
+make
+```
 
 Linux Packages
 --------------
