@@ -550,21 +550,35 @@ std::string timestamp(){
 
 string randomKey(int length)
 {
-	cout<<"Enter random keys on the keyboard to seed the generator."<<endl<<"End by pressing enter..."<<endl;
-	double check=0;
-	char c=0;
-	echo(false);
-	while(c!=10){
-		check+=(int)c;
-		c=getchar();
-	}
-	echo(true);
-	srand(time(NULL)+(int)check);
-	stringstream retval;
-	for (int i=0; i<length; i++)
-	{
-		retval <<HEX(rand() % 256);
-	}
-	retval << endl;
-	return retval.str();
+  unsigned char rnd;
+  stringstream retval;
+  ifstream random;
+
+  //Under Linux and AIX /dev/random provides much more cryptographically secure random output than rand()
+  random.open("/dev/random", ios::in|ios::binary);
+  if(random.is_open()){
+    for(int i=0; i<length; i++)
+    {
+      random.read(reinterpret_cast<char*>(&rnd), 1);
+      retval <<HEX(rnd);
+    }
+    random.close();
+  }else{
+    cout<<"Enter random keys on the keyboard to seed the generator."<<endl<<"End by pressing enter..."<<endl;
+    double check=0;
+    char c=0;
+    echo(false);
+    while(c!=10){
+      check+=(int)c;
+      c=getchar();
+    }
+    echo(true);
+    srand(time(NULL)+(int)check);
+    for(int i=0; i<length; i++)
+    {
+      retval <<HEX(rand() % 256);
+    }
+  }
+  retval << endl;
+  return retval.str();
 }
