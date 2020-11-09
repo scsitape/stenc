@@ -45,3 +45,9 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
+Further reading
+---------------
+
+IBM Tape Library Guide for Open Systems
+ISBN-13: 9780738458342
+http://www.redbooks.ibm.com/abstracts/sg245946.html?Open
