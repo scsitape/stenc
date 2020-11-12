@@ -110,7 +110,7 @@ int main(int argc, char **argv){
         }
 	if(thisCmd=="--version"){ 
 	    cout<<"stenc v"<<VERSION<<" - SCSI Tape Encryption Manager"<<endl;
-	    cout<<"http://sourceforge.net/projects/stenc/"<<endl;
+	    cout<<"https://github.com/scsitape/stenc"<<endl;
 	    exit(EXIT_SUCCESS);
 	    	
         }
