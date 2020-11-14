@@ -27,7 +27,7 @@ Allows you to manage hardware encryption on SSP enabled tape devices (LTO4, LTO5
 .SH OPTIONS 
 .TP
 \fB\-g \fIlength\fR \fB\-k\fR \fB<file to save as>\fR [\fB\-kd\fR \fI<key descriptor(uKAD)>\fR]
-Generates a key file of \fIlength\fR (in bits) containing a random hexadecimal key. After entering this option, you will be required to press random keys followed by the enter key.  This will seed the random number generator so that your key is more secure.  Specify the file to save the key into with the -k option (you will need write permissions to that file location). Lastly you can enter an optional key description using the -kd flag (see \fIKEY DESCRIPTORS\fR). This key file can then be used with the \fB\-k\fR option. You should not generate a key file over an unsecured remote session. Typically, key files should be set to 256 bits (32 hexadecimal bytes), however your device may only support 128 bits.
+Generates a key file of \fIlength\fR (in bits) containing a random hexadecimal key. After entering this option, you will be required to press random keys followed by the enter key.  This will seed the random number generator so that your key is more secure. On systems with \fB/dev/random\fR, the key is automatically generated from the random content read from this file.  Specify the file to save the key into with the -k option (you will need write permissions to that file location). Lastly you can enter an optional key description using the -kd flag (see \fIKEY DESCRIPTORS\fR). This key file can then be used with the \fB\-k\fR option. You should not generate a key file over an unsecured remote session. Typically, key files should be set to 256 bits (32 hexadecimal bytes), however your device may only support 128 bits.
 
 .TP
 \fB\-f\fR \fIdevice\fR
