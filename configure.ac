@@ -36,11 +36,18 @@ AC_ARG_WITH([default-ceem],
             [AS_HELP_STRING([--with-default-ceem=<number>],[the default CEEM flag when setting options.  Defaults to 0])],
 	    [AC_DEFINE_UNQUOTED([DEFAULT_CEEM],$withval,"") AC_MSG_RESULT($withval)],
 	    [AC_DEFINE([DEFAULT_CEEM],0,"") AC_MSG_RESULT(0)])
+
 AC_MSG_CHECKING(default key size to use)
 AC_ARG_WITH([default-key-size],
             [AS_HELP_STRING([--with-default-key-size=<bytes>],[the default key size for your drive.  Only used when turning off encryption.  Defaults to 32 (256 bit)])],
 	    [AC_DEFINE_UNQUOTED([DEFAULT_KEYSIZE],$withval,"") AC_MSG_RESULT($withval)],
 	    [AC_DEFINE([DEFAULT_KEYSIZE],32,"") AC_MSG_RESULT(32)])
+
+AC_MSG_CHECKING(default tape drive)
+AC_ARG_WITH([default-tape-drive],
+            [AS_HELP_STRING([--with-default-tape-drive=<path-to-tape>],[the default path to your drive. Defaults to /dev/nst0])],
+	    [AC_DEFINE_UNQUOTED([DEFAULT_TAPE],"$withval","") AC_MSG_RESULT($withval)],
+	    [AC_DEFINE([DEFAULT_TAPE],"/dev/nst0","") AC_MSG_RESULT(/dev/nst0)])
 
 AC_MSG_CHECKING(your OS)
 system=`uname`
