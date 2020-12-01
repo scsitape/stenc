@@ -229,3 +229,20 @@ operates.
 `configure' also accepts some other, not widely useful, options.  Run
 `configure --help' for more details.
 
+The following specific configure options available for stenc:
+
+ --with-scsi-debug                          Define if you want to debug SCSI Communication.
+ --with-max-tape-read-blocks=<number>       How many blocks the tape drive will seek to determine the
+                                            encryption status on the volume. Defaults to 100.
+ --with-default-algorithm=<number>          The default algorithm index to set for encryption. Defaults to 0.
+ --with-default-ceem=<number>               The default CEEM flag when setting options. Defaults to 0.
+ --with-default-key-size=<bytes>            The default key size for your drive.  Only used when turning off
+                                            encryption. Defaults to 32 (256 bit).
+ --with-default-tape-drive=<path-to-tape>   The default path to your drive. Defaults to /dev/nst0.
+ --enable-device-name-conversion=<yes|no>   Whether to convert rewinding device names to non-rewinding
+                                            device names. Enabled by default.
+
+For example, the next code configure stenc for use /dev/nst1 and encription algorithm number 1 by default:
+`./configure --with-default-tape-drive=/dev/nst1 --with-default-algorithm=1'
+
+

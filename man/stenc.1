@@ -7,11 +7,11 @@ stenc - SCSI Tape Hardware Encryption Manager
 .SH SYNOPSIS 
 \fBstenc\fR \fB\-g\fR \fIlength\fR \fB\-k\fR \fIfile\fR [\fB\-kd\fR \fIdescription\fR]
 .br 
-\fBstenc\fR \fB\-f\fR \fIdevice\fR [\fB\-\-detail\fR]
+\fBstenc\fR [\fB\-f\fR \fIdevice\fR] [\fB\-\-detail\fR]
 .br
-\fBstenc\fR \fB\-f\fR \fIdevice\fR \fB\-e\fR \fBon\fR|\fBmixed\fR|\fBrawread\fR [\fB\-a\fR \fIindex\fR] [\fB\-k\fR \fIfile\fR] [\fB\-\-ckod\fR] [\fB\-\-protect\fR | \fB\-\-unprotect\fR] 
+\fBstenc\fR [\fB\-f\fR \fIdevice\fR] \fB\-e\fR \fBon\fR|\fBmixed\fR|\fBrawread\fR [\fB\-a\fR \fIindex\fR] [\fB\-k\fR \fIfile\fR] [\fB\-\-ckod\fR] [\fB\-\-protect\fR | \fB\-\-unprotect\fR] 
 .br
-\fBstenc\fR \fB\-f\fR \fIdevice\fR \fB\-e\fR \fBoff\fR [\fB\-a\fR \fIindex\fR] [\fB\-\-ckod\fR] [\fB\-\-protect\fR | \fB\-\-unprotect\fR]
+\fBstenc\fR [\fB\-f\fR \fIdevice\fR] \fB\-e\fR \fBoff\fR [\fB\-a\fR \fIindex\fR] [\fB\-\-ckod\fR] [\fB\-\-protect\fR | \fB\-\-unprotect\fR]
 .br
 \fBstenc\fR \fB\-\-version\fR
 
@@ -27,14 +27,16 @@ Allows you to manage hardware encryption on SSP enabled tape devices (LTO4, LTO5
 .SH OPTIONS 
 .TP
 \fB\-g \fIlength\fR \fB\-k\fR \fB<file to save as>\fR [\fB\-kd\fR \fI<key descriptor(uKAD)>\fR]
-Generates a key file of \fIlength\fR (in bits) containing a random hexadecimal key. After entering this option, you will be required to press random keys followed by the enter key.  This will seed the random number generator so that your key is more secure.  Specify the file to save the key into with the -k option (you will need write permissions to that file location). Lastly you can enter an optional key description using the -kd flag (see \fIKEY DESCRIPTORS\fR). This key file can then be used with the \fB\-k\fR option. You should not generate a key file over an unsecured remote session. Typically, key files should be set to 256 bits (32 hexadecimal bytes), however your device may only support 128 bits.
+Generates a key file of \fIlength\fR (in bits) containing a random hexadecimal key. After entering this option, you will be required to press random keys followed by the enter key.  This will seed the random number generator so that your key is more secure.  Specify the file to save the key into with the \fB-k\fR option (you will need write permissions to that file location). Lastly you can enter an optional key description using the \fB-kd\fR flag (see \fIKEY DESCRIPTORS\fR). This key file can then be used with the \fB\-k\fR option. You should not generate a key file over an unsecured remote session. Typically, key files should be set to 256 bits (32 hexadecimal bytes), however your device may only support 128 bits.
 
 .TP
 \fB\-f\fR \fIdevice\fR
 
-Specifies the device to use (i.e. \fI/dev/nst0, /dev/rmt0.1, /dev/sg0\fR). Use the \fBlsscsi\fR command to determine the appropriate device to use.  You should always use a device name that does not rewind (i.e. use /dev/nst0 instead of /dev/st0, /dev/rmt0.1 instead of /dev/rmt0).   Use commands like 'cat /proc/scsi/scsi', 'lsscsi', and 'lsdev' to determine the proper device to use.  On some distros, a /dev/sg device must be used instead of a /dev/st device.
+Specifies the device to use (i.e. \fI/dev/nst0, /dev/rmt0.1, /dev/sg0\fR). Use the \fBlsscsi\fR command to determine the appropriate device to use.  You should always use a device name that does not rewind (i.e. use \fI/dev/nst0\fR instead of /dev/st0, /dev/rmt0.1 instead of /dev/rmt0).   Use commands like 'cat /proc/scsi/scsi', 'lsscsi', and 'lsdev' to determine the proper device to use.  On some distros, a /dev/sg\ device must be used instead of a /dev/st device.
 
-If this is the only option specified, the status of the device will be displayed.  To retrieve more detailed status information, add \fB\-\-detail\fR.  If you are root and the status command fails, either the \fIdevice\fR is incorrect (try another link to the device: \fI/dev/rmt0.1\fR, \fI/dev/nst0\fR, \fI/dev/tape\fR, etc.), a tape may not be in the drive, you may be using the wrong algorithm for the tape drive (see the \fB\-a\fR option), or the device does not support SCSI Security Protocol. \fBstenc\fR may read up to 100 blocks of the tape, starting at the current position, in order to determine if the volume has been encrypted.  For this reason, you should not run the status command while another process is accessing the drive. If the device returns \fIUnable to determine\fR for the volume encryption status, you may need to move to a section of the tape that contains data (i.e. \fBmt -f <device> fsr <count>\fR) or rewind the tape in order for \fBstenc\fR to output the volume status.
+If \fB\-f\fR option omited, stenc will try to read `\fITAPE\fR' environment variable and use it for device name defenition. If `\fITAPE\fR' variable is not defined, the default device name will be used. The default device name is \fI/dev/nst0\fR and can be changed at compile-time by using the --with-default-tape-drive configure option.
+
+If this is the only option specified, or no options, the status of the device will be displayed.  To retrieve more detailed status information, add \fB\-\-detail\fR.  If you are root and the status command fails, either the \fIdevice\fR is incorrect (try another link to the device: \fI/dev/rmt0.1\fR, \fI/dev/nst0\fR, \fI/dev/tape\fR, etc.), a tape may not be in the drive, you may be using the wrong algorithm for the tape drive (see the \fB\-a\fR option), or the device does not support SCSI Security Protocol. \fBstenc\fR may read up to 100 blocks of the tape, starting at the current position, in order to determine if the volume has been encrypted.  For this reason, you should not run the status command while another process is accessing the drive. If the device returns \fIUnable to determine\fR for the volume encryption status, you may need to move to a section of the tape that contains data (i.e. \fBmt -f <device> fsr <count>\fR) or rewind the tape in order for \fBstenc\fR to output the volume status.
 
 .TP 
 \fB\-e\fR \fBon\fR | \fBmixed\fR | \fBrawread\fR | \fBoff\fR 
@@ -91,14 +93,14 @@ Generate a random 256 bit key file with the description "September Tape Key" and
 \fBstenc -f /dev/st0 -e on -k /etc/stenc.key\fR
 Turns on encryption on /dev/st0 using the key contained in /etc/stenc.key
 .TP
-\fBstenc -f /dev/st0 -e on\fR
-Asks user to input a key in hexadecimal format and then turns on encryption for /dev/st0 using that key
+\fBstenc -f /dev/nst0 -e on\fR
+Asks user to input a key in hexadecimal format and then turns on encryption for /dev/nst0 using that key
 .TP
 \fBstenc -f /dev/st0 -e off\fR
 Turns off encryption for /dev/st0 
 .TP 
-\fBstenc -f /dev/st0 --detail\fR
-Outputs the detailed encryption status of /dev/st0
+\fBstenc --detail\fR
+Outputs the detailed encryption status of default device or environment TAPE device if defined.
 .TP
 \fBtail /var/log/stenc\fR
 Lists the last few key change audit entries

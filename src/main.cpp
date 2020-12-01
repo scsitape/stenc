@@ -67,6 +67,7 @@ string randomKey(int length);
 string timestamp();
 void echo(bool);
 ofstream logFile;
+string defaultTape();
 //program entry point
 int main(int argc, char **argv){
 
@@ -94,7 +95,7 @@ int main(int argc, char **argv){
 		break;
     }
 
-    string tapeDrive="";
+    string tapeDrive=defaultTape();
     int action=0; // 0 = status, 1 =setting param, 2 = generating key
     string keyFile,keyDesc;
     int keyLength=0;
@@ -343,7 +344,7 @@ void errorOut(string message){
 
 //shows the command usage
 void showUsage(){
-    cout<<"Usage: stenc --version | -g <length> -k <file> [-kd <description>] | -f <device> [--detail] [-e <on/mixed/rawread/off> [-k <file>] [-kd <description>] [-a <index>] [--protect | --unprotect] [--ckod] ]"<<endl;
+    cout<<"Usage: stenc --version | -g <length> -k <file> [-kd <description>] | [-f <device>] [--detail] [-e <on/mixed/rawread/off> [-k <file>] [-kd <description>] [-a <index>] [--protect | --unprotect] [--ckod] ]"<<endl;
     cout<<"Type 'man stenc' for more information."<<endl;
 }
 void inquiryDrive(string tapeDevice){
@@ -567,4 +568,13 @@ string randomKey(int length)
 	}
 	retval << endl;
 	return retval.str();
+}
+
+string defaultTape()
+{
+	string retval = DEFAULT_TAPE;
+	char* tapeEnv = getenv("TAPE");
+	if (tapeEnv != nullptr)
+		retval = tapeEnv;
+	return retval;
 }
