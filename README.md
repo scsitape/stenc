@@ -1,3 +1,6 @@
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/scsitape/stenc.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/scsitape/stenc/alerts/)
+[![Language grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/scsitape/stenc.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/scsitape/stenc/context:cpp)
+
 Stenc
 -----
 
