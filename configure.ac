@@ -83,5 +83,9 @@ AC_CHECK_PROG(PANDOC, [pandoc], [yes])
 AM_CONDITIONAL([FOUND_PANDOC], [test "x$PANDOC" = xyes])
 AM_COND_IF([FOUND_PANDOC],,[AC_MSG_ERROR([required program 'pandoc' not found.])])
 
+if test "${system}" = "FreeBSD"; then
+	  LIBS="${LIBS} -lcam"
+fi
+
 AC_CONFIG_FILES([Makefile src/Makefile man/Makefile tests/Makefile])
 AC_OUTPUT 

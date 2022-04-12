@@ -37,7 +37,8 @@ GNU General Public License for more details.
 #include <scsi/sg.h>
 #define SCSI_TIMEOUT 5000
 #elif defined(OS_FREEBSD)
-#include <cam/scsi/scsi_sg.h>
+#include <camlib.h>
+#include <cam/scsi/scsi_message.h>
 #define SCSI_TIMEOUT 5000
 #else
 #error "OS type is not set"
@@ -285,7 +286,7 @@ bool SCSIExecute(std::string tapedrive, unsigned char *cmd_p, int cmd_len,
   SCSI_PAGE_SENSE *sd = new SCSI_PAGE_SENSE;
   memset(sd, 0, sizeof(SCSI_PAGE_SENSE));
 
-#if defined(OS_LINUX) || defined(OS_FREEBSD) // Linux or FreeBSD System
+#if defined(OS_LINUX)
   errno = 0;
   sg_fd = open(tapedevice, O_RDONLY);
   if (sg_fd == -1) {
@@ -315,6 +316,33 @@ bool SCSIExecute(std::string tapedrive, unsigned char *cmd_p, int cmd_len,
   } while (errno != 0 && retries <= RETRYCOUNT);
 
   sresult = cmdio.status;
+  close(sg_fd);
+#elif defined(OS_FREEBSD)
+  errno = 0;
+  auto dev = cam_open_device(tapedevice, O_RDWR);
+  auto ccb = dev ? cam_getccb(dev) : nullptr;
+
+  if (dev == nullptr || ccb == nullptr) {
+    std::cerr << "Could not open device '" << tapedevice << "': " << cam_errbuf << "\n";
+    exit(EXIT_FAILURE);
+  }
+  CCB_CLEAR_ALL_EXCEPT_HDR(&ccb->csio);
+
+  cam_fill_csio(&ccb->csio, RETRYCOUNT, nullptr,
+                CAM_PASS_ERR_RECOVER | CAM_CDB_POINTER |
+                    (cmd_to_device ? CAM_DIR_OUT : CAM_DIR_IN),
+                MSG_SIMPLE_Q_TAG, dxfer_p, dxfer_len, SSD_FULL_SIZE, cmd_len,
+                SCSI_TIMEOUT);
+  ccb->csio.cdb_io.cdb_ptr = cmd_p;
+  eresult = cam_send_ccb(dev, ccb);
+  if (eresult != 0) {
+    ioerr = errno;
+  }
+  sresult = ccb->csio.scsi_status;
+  memcpy(sd, &ccb->csio.sense_data, sizeof(SCSI_PAGE_SENSE));
+
+  cam_freeccb(ccb);
+  cam_close_device(dev);
 #else
 #error "OS type is not set"
 #endif
@@ -331,7 +359,6 @@ bool SCSIExecute(std::string tapedrive, unsigned char *cmd_p, int cmd_len,
   }
   std::cout << std::endl;
 #endif
-  close(sg_fd);
 
   bool retval = true;
 
