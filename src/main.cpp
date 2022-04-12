@@ -67,6 +67,7 @@ string randomKey(int length);
 string timestamp();
 void echo(bool);
 ofstream logFile;
+
 //program entry point
 int main(int argc, char **argv){
 
@@ -100,6 +101,7 @@ int main(int argc, char **argv){
     int keyLength=0;
     bool detail=false;
     SCSIEncryptOptions drvOptions;
+    bool algorithmIndexSet = false;
 
     	//First load all of the options
     for(int i=1;i<argc;i++){
@@ -168,8 +170,11 @@ int main(int argc, char **argv){
                 detail=true;
         }
 	else if(thisCmd=="-a"){
-		if(nextCmd=="")errorOut("You must specify a numeric algorithm index when using the -a flag");
-                drvOptions.algorithmIndex=atoi(nextCmd.c_str()); 
+		if(nextCmd=="") {
+			errorOut("You must specify a numeric algorithm index when using the -a flag");
+		}
+		drvOptions.algorithmIndex=atoi(nextCmd.c_str());
+		algorithmIndexSet = true;
 	        i++; //skip the next argument
         }
 	else{
@@ -177,7 +182,11 @@ int main(int argc, char **argv){
 	}
 
     }
-
+	// Done reading options. Validate.
+	if (drvOptions.cryptMode != CRYPTMODE_OFF && !algorithmIndexSet) {
+		errorOut("Encryption enabled but no algorithm index was set. Use 1 for 256-bit AES.");
+	}
+	// Done validating. Execute action.
     if(action==2){//generate key
 	    if(keyFile==""){
 		errorOut("Specify file to save into with the -k argument.");
@@ -334,6 +343,7 @@ int main(int argc, char **argv){
                 errorOut("Turning encryption off for '"+tapeDrive+"' failed!");
     }
 }
+
 //exits to shell with an error message
 void errorOut(string message){
     cerr<<"Error: "<<message<<endl;
