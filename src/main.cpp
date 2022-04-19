@@ -13,6 +13,9 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
+#include "keyinfo.h"
+#include "scsiencrypt.h"
+
 #include <config.h>
 #include <termios.h>
 #ifdef HAVE_UNISTD_H
@@ -31,8 +34,6 @@ GNU General Public License for more details.
 #ifdef HAVE_STRING_H
 #include <string.h>
 #endif
-#include "keyinfo.h"
-#include "scsiencrypt.h"
 
 #include <ostream>
 
