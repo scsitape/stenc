@@ -5,7 +5,7 @@
 #include <sstream>
 #include "keyinfo.h"
 #include "scsiencrypt.h"
-using namespace std;
+//using namespace std;
 
 Keyinfo::Keyinfo(){
 	valid=false;
@@ -13,11 +13,11 @@ Keyinfo::Keyinfo(){
 	key=NULL;
 	keySize=0;
 }
-void Keyinfo::load(string hexinput){
+void Keyinfo::load(std::string hexinput){
 	valid=true;
 	if(hexinput.size()<2){
 		valid=false;
-                cout<<"Key input too short!"<<endl;
+                std::cout<<"Key input too short!\n";
                 return;
 
 	}
@@ -48,7 +48,7 @@ void Keyinfo::load(string hexinput){
 			case 'F': 
 				break;
 			default:
-				cout<<"Invalid character '"<<hexinput.at(i)<<"' found in key!"<<endl;
+				std::cout<<"Invalid character '"<<hexinput.at(i)<<"' found in key!\n";
 				valid=false;
 				return;
 		}	
@@ -59,7 +59,7 @@ void Keyinfo::load(string hexinput){
 	// check that the input size is divisible by 2
 	if(hexinput.size()%2!=0){
 		valid=false;
-		cout<<"Each hexadecimal byte must consist of 2 digits!"<<endl;
+		std::cout<<"Each hexadecimal byte must consist of 2 digits!\n";
 		return;
 	}
 	//convert the hex input to a char*
@@ -68,13 +68,13 @@ void Keyinfo::load(string hexinput){
 	loadCheck();
 	//check for oversized key
     	if(keySize==0 || keySize>SSP_KEY_LENGTH){
-		cout<<"Key size cannot exceed "<<(SSP_KEY_LENGTH*8)<<" bits!"<<endl;
-		cout<<"Provided key is "<<(keySize*8)<<" bits in length."<<endl;
+		std::cout<<"Key size cannot exceed "<<(SSP_KEY_LENGTH*8)<<" bits!\n";
+		std::cout<<"Provided key is "<<(keySize*8)<<" bits in length.\n";
 		valid=false;
 		return;
     	}	
-	cout<<"Provided key length is "<<(keySize*8)<<" bits."<<endl;
-	cout<<"Key checksum is "<<check<<"."<<endl;
+	std::cout<<"Provided key length is "<<(keySize*8)<<" bits.\n";
+	std::cout<<"Key checksum is "<<check<<".\n";
 
 
 }
@@ -84,14 +84,14 @@ void Keyinfo::loadCheck() {
 	for (i = 0; i<keySize;i++) {     
 		chk += ((int)key[i]) * (i + 1);   
 	}
-	stringstream retval;
-	retval<<hex<<chk;    
+	std::stringstream retval;
+	retval<<std::hex<<chk;
 	check=retval.str();
 }
 Keyinfo::~Keyinfo(){
 	delete key;
 }
-void Keyinfo::loadKey(string str)
+void Keyinfo::loadKey(std::string str)
 {
 	int length = str.size();
 	// make sure the input string has an even digit numbers
@@ -106,7 +106,7 @@ void Keyinfo::loadKey(string str)
 	memset(key,0,(length/2)+1);
 	keySize = length/2;
 
-	stringstream sstr(str);
+	std::stringstream sstr(str);
 	for(int i=0; i < keySize; i++)
 	{
 		char ch1, ch2;

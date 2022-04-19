@@ -63,7 +63,7 @@ GNU General Public License for more details.
 #define BSINTTOCHAR(x)     (unsigned char)((x & 0xff000000)>>24), (unsigned char)((x & 0x00ff0000)>>16),(unsigned char)((x & 0x0000ff00)>>8),(unsigned char)(x & 0x000000ff)
 
 
-using namespace std;
+//using namespace std;
 
 
 void byteswap(unsigned char* array,int size,int value);
@@ -71,7 +71,7 @@ bool moveTape(std::string tapeDevice,int count,bool dirForward);
 void outputSense(SCSI_PAGE_SENSE* sd);
 void readIOError(int err);
 
-bool SCSIExecute(string tapedevice, unsigned char* cmd_p,int cmd_len,unsigned char* dxfer_p,int dxfer_len, bool cmd_to_device, bool show_error);
+bool SCSIExecute(std::string tapedevice, unsigned char* cmd_p,int cmd_len,unsigned char* dxfer_p,int dxfer_len, bool cmd_to_device, bool show_error);
 
 typedef struct { //structure for setting data encryption
         unsigned char pageCode		[2];
@@ -144,7 +144,7 @@ unsigned char
         };
 
 //Gets encryption options on the tape drive
-SSP_DES* SSPGetDES(string tapeDevice){
+SSP_DES* SSPGetDES(std::string tapeDevice){
         SSP_PAGE_BUFFER buffer;
         memset(&buffer,0,sizeof(SSP_PAGE_BUFFER));
         if(!SCSIExecute(tapeDevice,
@@ -162,7 +162,7 @@ SSP_DES* SSPGetDES(string tapeDevice){
 }
 
 //Gets encryption options on the tape drive
-SSP_NBES* SSPGetNBES(string tapeDevice,bool retry){
+SSP_NBES* SSPGetNBES(std::string tapeDevice,bool retry){
 
 	SSP_PAGE_BUFFER  buffer;
         memset(&buffer,0,sizeof(SSP_PAGE_BUFFER));
@@ -198,7 +198,7 @@ SSP_NBES* SSPGetNBES(string tapeDevice,bool retry){
 }
 
 //Sends and inquiry to the device
-SCSI_PAGE_INQ* SCSIGetInquiry(string tapeDevice){
+SCSI_PAGE_INQ* SCSIGetInquiry(std::string tapeDevice){
 	SCSI_PAGE_INQ* status=new SCSI_PAGE_INQ;
 	memset(status,0,sizeof(SCSI_PAGE_INQ));
 	if(!SCSIExecute(tapeDevice,
@@ -216,7 +216,7 @@ SCSI_PAGE_INQ* SCSIGetInquiry(string tapeDevice){
 
 
 //Writes encryption options to the tape drive
-bool SCSIWriteEncryptOptions(string tapeDevice, SCSIEncryptOptions* eOptions){
+bool SCSIWriteEncryptOptions(std::string tapeDevice, SCSIEncryptOptions* eOptions){
     	
 	char buffer[1024];
 	memset(&buffer,0,1024);
@@ -302,7 +302,7 @@ bool SCSIWriteEncryptOptions(string tapeDevice, SCSIEncryptOptions* eOptions){
     	);  
 }
 
-bool SCSIExecute(string tapedrive, unsigned char* cmd_p,int cmd_len,unsigned char* dxfer_p,int dxfer_len, bool cmd_to_device, bool show_error)
+bool SCSIExecute(std::string tapedrive, unsigned char* cmd_p,int cmd_len,unsigned char* dxfer_p,int dxfer_len, bool cmd_to_device, bool show_error)
 {
 	const char* tapedevice=tapedrive.c_str();
 	int sg_fd,eresult,sresult,ioerr,retries;
@@ -313,7 +313,7 @@ bool SCSIExecute(string tapedrive, unsigned char* cmd_p,int cmd_len,unsigned cha
         errno=0;
         sg_fd = open(tapedevice, O_RDONLY);
         if( sg_fd==-1){
-                cerr<<"Could not open device '"<<tapedevice<<"': ";
+                std::cerr<<"Could not open device '"<<tapedevice<<"': ";
                 readIOError(errno);
                 exit(EXIT_FAILURE);
         }
@@ -346,7 +346,7 @@ bool SCSIExecute(string tapedrive, unsigned char* cmd_p,int cmd_len,unsigned cha
 	errno=0;
 	sg_fd = openx((char*)tapedevice, O_RDONLY , NULL, SC_DIAGNOSTIC);
 	if(!sg_fd || sg_fd==-1){
-		cerr<<"Could not open device '"<<tapedevice<<"'"<<endl;
+		std::cerr<<"Could not open device '"<<tapedevice<<"'"<<std::endl;
 		exit(EXIT_FAILURE);
 	}
 
@@ -394,18 +394,18 @@ bool SCSIExecute(string tapedrive, unsigned char* cmd_p,int cmd_len,unsigned cha
  #error "OS type is not set"
 #endif
 #ifdef DEBUGSCSI
-	cout<<"SCSI Command: ";
+	std::cout<<"SCSI Command: ";
 	 for(int i=0;i<cmd_len;i++){
-		 cout<<HEX(cmd_p[i]);
+		 std::cout << std::hex << cmd_p[i];
 	 }
-	cout<<endl;
+	std::cout<<"\n";
 
 
-	cout<<"SCSI Data: ";
+	std::cout<<"SCSI Data: ";
 	 for(int i=0;i<dxfer_len;i++){
-		 cout<<HEX(dxfer_p[i]);
+		 std::cout<< std::hex << (dxfer_p[i]);
 	 }
-	cout<<endl;
+	std::cout<<std::endl;
 #endif
 	close(sg_fd);
 	
@@ -441,7 +441,7 @@ void byteswap(unsigned char* array,int size,int value){
 
 			break;
 		default:
-			cout<<"Unhandled byte swap length of "<<size<<endl;
+			std::cout<<"Unhandled byte swap length of "<<size<<std::endl;
 			break;
 	}
 }
@@ -518,107 +518,114 @@ bool moveTape(std::string tapeDevice,int count,bool dirForward){
 
 void readIOError(int err){
 	if(err==0)return;
-	cerr<<"ERROR: ";
+	std::cerr<<"ERROR: ";
         switch(err){
 		case EAGAIN:
-			cerr<<"Device already open"<<endl;
+			std::cerr<<"Device already open"<<std::endl;
 			break;
                 case EBUSY:
-                        cerr<<"Device Busy"<<endl;
+                        std::cerr<<"Device Busy"<<std::endl;
                         break;
                 case ETIMEDOUT:
-                        cerr<<"Device operation timed out"<<endl;
+                        std::cerr<<"Device operation timed out"<<std::endl;
                         break;
                 case EIO:
-			cerr<<"Device I/O Error."<<endl;
+			std::cerr<<"Device I/O Error."<<std::endl;
 			break;						
 		case EPERM:
-                        cerr<<"You do not have privileges to do this.  Are you root?"<<endl;
+                        std::cerr<<"You do not have privileges to do this.  Are you root?"<<std::endl;
                         break;
 #ifdef OS_AIX
 		case EBADF:
-			cerr<<"EBADF"<<endl;
+			std::cerr<<"EBADF"<<std::endl;
 			break;
 		case EFAULT:
-			cerr<<"EFAULT"<<endl;
+			std::cerr<<"EFAULT"<<std::endl;
 			break;
 		case EINTR:
-			cerr<<"EINTR"<<endl;
+			std::cerr<<"EINTR"<<std::endl;
 			break;
 		case EINVAL:
-			cerr<<"Invalid device"<<endl;
+			std::cerr<<"Invalid device"<<std::endl;
 			break;
 
 		case ENOTTY:
-			cerr<<"ENOTTY"<<endl;
+			std::cerr<<"ENOTTY"<<std::endl;
 			break;
 
 		case ENODEV:
-			cerr<<"Device is not responding"<<endl;
+			std::cerr<<"Device is not responding"<<std::endl;
 			break;
 
 		case ENXIO:
-			cerr<<"ENXIO"<<endl;
+			std::cerr<<"ENXIO"<<std::endl;
 			break;
 
 #endif
 		default:
 			if(errno!=0){
-				cerr<<"0x"<<hex<<errno<<" "<<strerror(errno)<<endl;
+				std::cerr<<"0x"<<std::hex<<errno<<" "<<strerror(errno)<<std::endl;
 
 			}
 	}
 	
 }
 void outputSense(SCSI_PAGE_SENSE* sd){
-	cerr<<left<<setw(25)<<"Sense Code: ";
+	std::cerr<<std::left<<std::setw(25)<<"Sense Code: ";
 
 	switch((int)sd->senseKey){
 		case 0:
-			cerr<<"No specific error";
+			std::cerr<<"No specific error";
 			break;
 		case 2:
-			cerr<<"Device not ready";
+			std::cerr<<"Device not ready";
 			break;
 		case 3:
-			cerr<<"Medium Error";
+			std::cerr<<"Medium Error";
 			break;
 		case 4:
-			cerr<<"Hardware Error";
+			std::cerr<<"Hardware Error";
 			break;
 		case 5:
-			cerr<<"Illegal Request";
+			std::cerr<<"Illegal Request";
 			break;
 		case 6:
-			cerr<<"Unit Attention";
+			std::cerr<<"Unit Attention";
 			break;
 		case 7:
-			cerr<<"Data protect";
+			std::cerr<<"Data protect";
 			break;
 		case 8:
-			cerr<<"Blank tape";
+			std::cerr<<"Blank tape";
 			break;
 	
 	}
-	cerr<<" (0x"<<HEX(sd->senseKey)<<")"<<endl;
-	cerr<<left<<setw(25)<<" ASC:"<<"0x"<<HEX(sd->addSenseCode)<<endl;
-	cerr<<left<<setw(25)<<" ASCQ:"<<"0x"<<HEX(sd->addSenseCodeQual)<<endl;
+
+	std::cerr<<" (0x"<<std::hex << (sd->senseKey);
+	std::cerr<<")\n";
+
+	std::cerr<<std::left<<std::setw(25)<<" ASC:"<<"0x"<<std::hex<< (sd->addSenseCode);
+	std::cerr<<"\n";
+
+	std::cerr<<std::left<<std::setw(25)<<" ASCQ:"<<"0x"<<std::hex << (sd->addSenseCodeQual);
+	std::cerr<<"\n";
+
 	if(sd->addSenseLen>0){
-		cerr<<left<<setw(25)<<" Additional data:"<<"0x";
+		std::cerr<<std::left<<std::setw(25)<<" Additional data:"<<"0x";
 		
 		for(int i=0;i<sd->addSenseLen;i++){
-			cerr<<HEX(sd->addSenseData[i]);
+			std::cerr<< std::hex << (sd->addSenseData[i]);
 		}
-		cerr<<endl;
+		std::cerr<<"\n";
 	}
 #ifdef DEBUGSCSI
-	cerr<<left<<setw(25)<<" Raw Sense:"<<"0x";
+	std::cerr<<std::left<<std::setw(25)<<" Raw Sense:"<<"0x";
 	char* rawsense=(char*)sd;
 
         for(int i=0;i<sizeof(SCSI_PAGE_SENSE);i++){
-               cerr<<HEX(rawsense[i]);
+               std::cerr<< std::hex << (rawsense[i]);
         }
-        cerr<<endl;
+        std::cerr<<"\n";
 #endif
 }
 
