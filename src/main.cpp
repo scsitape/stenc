@@ -205,8 +205,8 @@ int main(int argc, char **argv) {
       errorOut("Specify file to save into with the -k argument.");
     }
 
-		std::string const newkey = randomKey(keyLength);
-		std::ofstream kf { };
+    std::string const newkey = randomKey(keyLength);
+    std::ofstream kf{};
     umask(077); // make sure that no one else can read the new key file
     kf.open(keyFile.c_str(), std::ios::trunc);
     if (!kf.is_open()) {
@@ -263,7 +263,7 @@ int main(int argc, char **argv) {
     exit(EXIT_SUCCESS);
   }
 
-	Keyinfo ki { };
+  Keyinfo ki{};
   if (drvOptions.cryptMode != CRYPTMODE_OFF) {
     if (keyFile == "") {
       std::string p1 = "01";
@@ -345,7 +345,7 @@ int main(int argc, char **argv) {
         logFile << timestamp() << ": " << msg.str();
       }
     } else {
-			std::stringstream msg { };
+      std::stringstream msg{};
 
       msg << "Encryption turned off for device '" << tapeDrive << "'.";
       msg << " Key Instance: " << std::dec << BSLONG(opt->des.keyInstance)
@@ -382,8 +382,8 @@ void showUsage() {
   std::cout << "Type 'man stenc' for more information." << std::endl;
 }
 void inquiryDrive(std::string tapeDevice) {
-	//todo: std::cout should not be used outside main()
-	SCSI_PAGE_INQ *const iresult = SCSIGetInquiry(tapeDevice);
+  // todo: std::cout should not be used outside main()
+  SCSI_PAGE_INQ *const iresult = SCSIGetInquiry(tapeDevice);
   std::cout << std::left << std::setw(25) << "Device Mfg:";
   std::cout.write((const char *)iresult->vender, 8);
   std::cout << std::endl;
@@ -478,7 +478,7 @@ void showDriveStatus(std::string tapeDrive, bool detail) {
   }
   if (opt->kads.size() > 0) {
     for (unsigned int i = 0; i < opt->kads.size(); i++) {
-    	std::stringstream lbl { };
+      std::stringstream lbl{};
       lbl << "Drive Key Desc.(";
       switch (opt->kads[i].type) {
       case KAD_TYPE_UKAD:
@@ -580,26 +580,26 @@ void showVolumeStatus(std::string tapeDrive) {
 }
 
 void echo(bool on = true) {
-	struct termios settings { };
+  struct termios settings {};
   tcgetattr(STDIN_FILENO, &settings);
   settings.c_lflag =
       on ? (settings.c_lflag | ECHO) : (settings.c_lflag & ~(ECHO));
   tcsetattr(STDIN_FILENO, TCSANOW, &settings);
 }
 std::string timestamp() {
-	time_t tm { };
+  time_t tm{};
   time(&tm);
   char buffer[80];
   int len = strftime((char *)&buffer, 80, "%Y-%m-%d", localtime(&tm));
   std::string val;
   val.assign(buffer, len);
-  return(val);
+  return (val);
 }
 
 std::string randomKey(int length) {
   unsigned char rnd;
-	std::stringstream retval { };
-	std::ifstream random { };
+  std::stringstream retval{};
+  std::ifstream random{};
 
   // Under Linux and AIX /dev/random provides much more cryptographically secure
   // random output than rand()
@@ -628,5 +628,5 @@ std::string randomKey(int length) {
     }
   }
   retval << std::endl;
-  return(retval.str());
+  return (retval.str());
 }
