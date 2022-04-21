@@ -492,52 +492,50 @@ void readIOError(int err) {
   std::cerr << "ERROR: ";
   switch (err) {
   case EAGAIN:
-    std::cerr << "Device already open" << std::endl;
+    std::cerr << "Device already open.\n";
     break;
   case EBUSY:
-    std::cerr << "Device Busy" << std::endl;
+    std::cerr << "Device Busy.\n";
     break;
   case ETIMEDOUT:
-    std::cerr << "Device operation timed out" << std::endl;
+    std::cerr << "Device operation timed out\n";
     break;
   case EIO:
-    std::cerr << "Device I/O Error." << std::endl;
+    std::cerr << "Device I/O Error.\n";
     break;
   case EPERM:
-    std::cerr << "You do not have privileges to do this.  Are you root?"
-              << std::endl;
+    std::cerr << "You do not have privileges to do this.  Are you root?\n";
     break;
 #ifdef OS_AIX
   case EBADF:
-    std::cerr << "EBADF" << std::endl;
+    std::cerr << "EBADF\n";
     break;
   case EFAULT:
-    std::cerr << "EFAULT" << std::endl;
+    std::cerr << "EFAULT\n";
     break;
   case EINTR:
-    std::cerr << "EINTR" << std::endl;
+    std::cerr << "EINTR\n";
     break;
   case EINVAL:
-    std::cerr << "Invalid device" << std::endl;
+    std::cerr << "Invalid device.\n";
     break;
 
   case ENOTTY:
-    std::cerr << "ENOTTY" << std::endl;
+    std::cerr << "ENOTTY\n";
     break;
 
   case ENODEV:
-    std::cerr << "Device is not responding" << std::endl;
+    std::cerr << "Device is not responding.\n";
     break;
 
   case ENXIO:
-    std::cerr << "ENXIO" << std::endl;
+    std::cerr << "ENXIO\n";
     break;
 
 #endif
   default:
     if (errno != 0) {
-      std::cerr << "0x" << std::hex << errno << " " << strerror(errno)
-                << std::endl;
+      std::cerr << "0x" << std::hex << errno << " " << strerror(errno) << "\n";
     }
   }
 }
@@ -571,20 +569,17 @@ void outputSense(SCSI_PAGE_SENSE *sd) {
     break;
   }
 
-  std::cerr << " (0x" << std::hex << (sd->senseKey);
-  std::cerr << ")\n";
+  std::cerr << " (0x" << std::hex << (sd->senseKey) << ")\n";
 
   std::cerr << std::left << std::setw(25) << " ASC:"
-            << "0x" << std::hex << (sd->addSenseCode);
-  std::cerr << "\n";
+            << "0x" << std::hex << (sd->addSenseCode) << "\n";
 
   std::cerr << std::left << std::setw(25) << " ASCQ:"
-            << "0x" << std::hex << (sd->addSenseCodeQual);
-  std::cerr << "\n";
+            << "0x" << std::hex << (sd->addSenseCodeQual) << "\n";
 
   if (sd->addSenseLen > 0) {
-    std::cerr << std::left << std::setw(25) << " Additional data:"
-              << "0x";
+    std::cerr << std::left << std::setw(25) << " Additional data:" 
+    		<< "0x";
 
     for (int i = 0; i < sd->addSenseLen; i++) {
       std::cerr << std::hex << (sd->addSenseData[i]);

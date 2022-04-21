@@ -1,5 +1,5 @@
 Name:           stenc
-Version:        1.0.9
+Version:        1.1.0
 Release:        3%{?dist}
 Summary:        SCSI Tape Encryption Manager
 

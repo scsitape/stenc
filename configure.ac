@@ -1,4 +1,4 @@
-AC_INIT([stenc],[1.0.8])
+AC_INIT([stenc],[1.1.0])
 AC_CONFIG_SRCDIR([src/main.cpp])
 AM_INIT_AUTOMAKE([foreign])
 

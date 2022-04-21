@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #endif
 #include <fstream>
 #include <iomanip>
+#include <ios>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -73,7 +74,6 @@ void echo(bool);
 std::ofstream logFile;
 
 int main(int argc, char **argv) {
-
   bitcheck bc;
   memset(&bc, 0, 1);
   bc.bit2 = 1;
@@ -97,8 +97,7 @@ int main(int argc, char **argv) {
 #endif
     break;
   default:
-    std::cerr << "Unknown bit check result " << std::hex << check;
-    std::cerr << std::endl;
+    std::cerr << "Unknown bit check result " << std::hex << check << "\n";
     errorOut("Exiting program because it will not run properly");
     break;
   }
@@ -120,7 +119,7 @@ int main(int argc, char **argv) {
     }
     if (thisCmd == "--version") {
       std::cout << "stenc v" << VERSION << " - SCSI Tape Encryption Manager\n";
-      std::cout << "https://github.com/scsitape/stenc" << std::endl;
+      std::cout << "https://github.com/scsitape/stenc \n";
       exit(EXIT_SUCCESS);
     }
     if (thisCmd == "-g") { // Check if the help flag was passed.  If it was,
@@ -134,7 +133,7 @@ int main(int argc, char **argv) {
       keyLength = keyLength / 8;
       if (keyLength > SSP_KEY_LENGTH) {
         std::cout << "Warning: Keys over " << (SSP_KEY_LENGTH * 8)
-                  << " bits cannot be used by this program!" << std::endl;
+                  << " bits cannot be used by this program! \n";
       }
       action = 2; // generating key
     } else if (thisCmd == "-e") {
@@ -214,9 +213,9 @@ int main(int argc, char **argv) {
     }
     kf << newkey << keyDesc;
     kf.close();
-    std::cout << "Random key saved into '" << keyFile << "'" << std::endl;
+    std::cout << "Random key saved into '" << keyFile << "'\n";
     chmod(keyFile.c_str(), 0600);
-    std::cout << "Permissions of keyfile set to 600" << std::endl;
+    std::cout << "Permissions of keyfile set to 600\n";
     exit(EXIT_SUCCESS);
   }
   // validate the tape device
@@ -247,14 +246,14 @@ int main(int argc, char **argv) {
   logFile.open(LOGFILE, std::ios::app);
   if (!logFile.is_open()) {
     std::cout << "Warning: Could not open '" << LOGFILE
-              << "' for key change auditing!" << std::endl;
+              << "' for key change auditing!\n";
   }
   chmod(LOGFILE, 0600);
 
   if (action == 0) {
-    std::cout << "Status for " << tapeDrive << std::endl;
-    std::cout << "--------------------------------------------------"
-              << std::endl;
+    std::cout << "Status for " << tapeDrive << "\n"
+    << "--------------------------------------------------\n";
+
     if (detail)
       inquiryDrive(tapeDrive);
     showDriveStatus(tapeDrive, detail);
@@ -274,14 +273,13 @@ int main(int argc, char **argv) {
         echo(false);
         getline(std::cin, p1);
         echo(true);
-        std::cout << std::endl;
-        std::cout << "Re-enter key in hex format: ";
+        std::cout << "\nRe-enter key in hex format: ";
         echo(false);
         getline(std::cin, p2);
         echo(true);
-        std::cout << std::endl;
+        std::cout << "\n";
         if (p1 != p2) {
-          std::cout << "Keys do not match!!" << std::endl;
+          std::cout << "Keys do not match!\n";
         } else {
           ki.load(p1);
           if (ki.valid) {
@@ -292,7 +290,7 @@ int main(int argc, char **argv) {
               done = true;
             }
           } else
-            std::cout << "Invalid key!" << std::endl;
+            std::cout << "Invalid key!\n";
         }
       }
       drvOptions.keyName = keyDesc;
@@ -367,7 +365,7 @@ int main(int argc, char **argv) {
 // exits to shell with an error message
 
 void errorOut(std::string const message) {
-  std::cerr << "Error: " << message << std::endl;
+  std::cerr << "Error: " << message << "\n";
   showUsage();
   exit(EXIT_FAILURE);
 }
@@ -376,10 +374,9 @@ void errorOut(std::string const message) {
 void showUsage() {
   std::cout
       << "Usage: stenc --version | -g <length> -k <file> [-kd <description>] | "
-         "-f <device> [--detail] [-e <on/mixed/rawread/off> [-k <file>] [-kd "
-         "<description>] [-a <index>] [--protect | --unprotect] [--ckod] ]"
-      << std::endl;
-  std::cout << "Type 'man stenc' for more information." << std::endl;
+         "-f <device> [--detail] [-e <on/mixed/rawread/off> [-k <file>] "
+	     "[-kd <description>] [-a <index>] [--protect | --unprotect] [--ckod] ]\n\n"
+         "Type 'man stenc' for more information.\n";
 }
 void inquiryDrive(std::string tapeDevice) {
   // todo: std::cout should not be used outside main()
@@ -422,58 +419,58 @@ void showDriveStatus(std::string tapeDrive, bool detail) {
   )
     emode = "off";
 
-  std::cout << emode << std::endl;
+  std::cout << emode << "\n";
   if (detail) {
     std::cout << std::left << std::setw(25) << "Drive Output:";
     switch ((int)opt->des.decryptionMode) {
     case 0x0:
-      std::cout << "Not decrypting" << std::endl;
+      std::cout << "Not decrypting\n";
       std::cout << std::setw(25) << " "
-                << "Raw encrypted data not outputted" << std::endl;
+                << "Raw encrypted data not outputted\n";
       break;
     case 0x1:
-      std::cout << "Not decrypting" << std::endl;
+      std::cout << "Not decrypting\n";
       std::cout << std::setw(25) << " "
-                << "Raw encrypted data outputted" << std::endl;
+                << "Raw encrypted data outputted\n";
       break;
     case 0x2:
-      std::cout << "Decrypting" << std::endl;
+      std::cout << "Decrypting\n";
       std::cout << std::setw(25) << " "
-                << "Unencrypted data not outputted" << std::endl;
+                << "Unencrypted data not outputted\n";
       break;
     case 0x3:
-      std::cout << "Decrypting" << std::endl;
+      std::cout << "Decrypting\n";
       std::cout << std::setw(25) << " "
-                << "Unencrypted data outputted" << std::endl;
+                << "Unencrypted data outputted\n";
       break;
     default:
       std::cout << "Unknown '0x" << std::hex << (int)opt->des.decryptionMode
-                << "' " << std::endl;
+                << "' \n";
       break;
     }
     std::cout << std::setw(25) << "Drive Input:";
     switch ((int)opt->des.encryptionMode) {
     case 0x0:
-      std::cout << "Not encrypting" << std::endl;
+      std::cout << "Not encrypting\n";
       break;
     case 0x2:
-      std::cout << "Encrypting" << std::endl;
+      std::cout << "Encrypting\n";
       break;
     default:
       std::cout << "Unknown result '0x" << std::hex
-                << (int)opt->des.encryptionMode << "'" << std::endl;
+                << (int)opt->des.encryptionMode << "'\n";
       break;
     }
     if (opt->des.RDMD == 1) {
       std::cout << std::setw(25) << " "
-                << "Protecting from raw read" << std::endl;
+                << "Protecting from raw read\n";
     }
 
     std::cout << std::setw(25) << "Key Instance Counter:" << std::dec
-              << BSLONG(opt->des.keyInstance) << std::endl;
+              << BSLONG(opt->des.keyInstance) << "\n";
     if (opt->des.algorithmIndex != 0) {
       std::cout << std::setw(25) << "Encryption Algorithm:" << std::hex
-                << (int)opt->des.algorithmIndex << std::endl;
+                << (int)opt->des.algorithmIndex << "\n";
     }
   }
   if (opt->kads.size() > 0) {
@@ -510,34 +507,33 @@ void showVolumeStatus(std::string tapeDrive) {
     std::cout << std::left << std::setw(25) << "Volume Compressed:";
     switch (opt->nbes.compressionStatus) {
     case 0x00:
-      std::cout << "Drive cannot determine" << std::endl;
+      std::cout << "Drive cannot determine\n";
       break;
     default:
       std::cout << "Unknown result '" << std::hex
-                << (int)opt->nbes.compressionStatus << "'" << std::endl;
+                << (int)opt->nbes.compressionStatus << "'\n";
       break;
     }
   }
   std::cout << std::left << std::setw(25) << "Volume Encryption:";
   switch ((int)opt->nbes.encryptionStatus) {
   case 0x01:
-    std::cout << "Unable to determine" << std::endl;
+    std::cout << "Unable to determine\n";
     break;
   case 0x02:
-    std::cout << "Logical block is not a logical block" << std::endl;
+    std::cout << "Logical block is not a logical block\n";
     break;
   case 0x03:
-    std::cout << "Not encrypted" << std::endl;
+    std::cout << "Not encrypted\n";
     break;
   case 0x05:
-    std::cout << "Encrypted and able to decrypt" << std::endl;
+    std::cout << "Encrypted and able to decrypt\n";
     if (opt->nbes.RDMDS == 1)
-      std::cout << std::left << std::setw(25) << " "
-                << "Protected from raw read" << std::endl;
+      std::cout << std::left << std::setw(25)
+                << " Protected from raw read\n";
     break;
   case 0x06:
-    std::cout << "Encrypted, but unable to decrypt due to invalid key. "
-              << std::endl;
+    std::cout << "Encrypted, but unable to decrypt due to invalid key.\n";
     if (opt->kads.size() > 0) {
       for (unsigned int i = 0; i < opt->kads.size(); i++) {
         std::stringstream lbl;
@@ -561,19 +557,17 @@ void showVolumeStatus(std::string tapeDrive) {
       }
     }
     if (opt->nbes.RDMDS == 1)
-      std::cout << std::left << std::setw(25) << " "
-                << "Protected from raw read" << std::endl;
+      std::cout << std::left << std::setw(25) << " Protected from raw read\n";
     break;
 
   default:
     std::cout << "Unknown result '" << std::hex
-              << (int)opt->nbes.encryptionStatus << "'" << std::endl;
+              << (int)opt->nbes.encryptionStatus << "'\n";
     break;
   }
   if (opt->nbes.algorithmIndex != 0) {
     std::cout << std::left << std::setw(25)
-              << "Volume Algorithm:" << (int)opt->nbes.algorithmIndex
-              << std::endl;
+              << "Volume Algorithm:" << (int)opt->nbes.algorithmIndex << "\n";
   }
 
   delete opt;
@@ -586,6 +580,7 @@ void echo(bool on = true) {
       on ? (settings.c_lflag | ECHO) : (settings.c_lflag & ~(ECHO));
   tcsetattr(STDIN_FILENO, TCSANOW, &settings);
 }
+
 std::string timestamp() {
   time_t tm{};
   time(&tm);
@@ -611,9 +606,9 @@ std::string randomKey(int length) {
     }
     random.close();
   } else {
-    std::cout << "Enter random keys on the keyboard to seed the "
-                 "generator.\nEnd by pressing enter..."
-              << std::endl;
+    std::cout << "Enter random keys on the keyboard to seed the generator.\n"
+                 "End by pressing enter...\n";
+
     double check = 0;
     char c = 0;
     echo(false);

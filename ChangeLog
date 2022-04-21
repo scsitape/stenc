@@ -1,3 +1,8 @@
+2022-04-22 Jonas Stein <news@jonasstein.de>
+* Version upgraded to 1.1.0
+* Code cleanup
+* Use /dev/random to create a key
+
 2020-06-16 Jonas Stein <news@jonasstein.de>
 * Version upgraded to 1.0.8
 * Merged patches to fix make files and provide more error messages
