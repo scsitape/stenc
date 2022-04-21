@@ -15,7 +15,11 @@ m4_warn([obsolete],
   ISO C90 headers unconditionally.])dnl
 # Autoupdate added the next two lines to ensure that your configure
 # script's behavior did not change.  They are probably safe to remove.
-AC_CHECK_INCLUDES_DEFAULT
+
+# Disable AC_CHECK_INCLUDES_DEFAULT, because this macro requires autoconf at 
+# least version 2.70 which is not default yet in many distributions.
+# See: https://github.com/scsitape/stenc/issues/33
+# AC_CHECK_INCLUDES_DEFAULT
 AC_PROG_EGREP
 
 
