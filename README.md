@@ -26,7 +26,7 @@ Get the source code and compile
 git clone git@github.com:scsitape/stenc.git
 cd stenc/
 autoreconf --install
-autogen.sh && ./configure  
+./autogen.sh && ./configure  
 make check     # optionally run the catch testing framework
 make
 ```
@@ -38,7 +38,7 @@ Linux Packages
 
 License
 -------
-Program copyright 2012-2018 contributing authors.
+Program copyright 2012-2022 contributing authors.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
