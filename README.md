@@ -31,6 +31,28 @@ make check     # optionally run the catch testing framework
 make
 ```
 
+Usage example
+-------------
+
+
+```
+$ stenc -f /dev/nst0 --detail
+Status for /dev/nst0
+--------------------------------------------------
+Device Mfg:              TANDBERG
+Product ID:              LTO-6 HH        
+Product Revision:        3579
+Drive Encryption:        on
+Drive Output:            Decrypting
+                         Unencrypted data not outputted
+Drive Input:             Encrypting
+                         Protecting from raw read
+Key Instance Counter:    1
+Encryption Algorithm:    1
+Drive Key Desc.(uKAD):   mykey20170113
+```
+
+
 Linux Packages
 --------------
 [![Packaging status](https://repology.org/badge/vertical-allrepos/stenc.svg)](https://repology.org/metapackage/stenc)
