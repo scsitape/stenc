@@ -602,7 +602,7 @@ std::string randomKey(int length) {
   if (random.is_open()) {
     for (int i = 0; i < length; i++) {
       random.read(reinterpret_cast<char *>(&rnd), 1);
-      retval << std::hex << rnd;
+      retval << std::hex << std::setfill('0') << setw(2) << static_cast<int>(rnd);
     }
     random.close();
   } else {
