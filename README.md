@@ -26,7 +26,8 @@ Get the source code and compile
 git clone git@github.com:scsitape/stenc.git
 cd stenc/
 autoreconf --install
-./configure
+autogen.sh && ./configure  
+make check     # optionally run the catch testing framework
 make
 ```
 
