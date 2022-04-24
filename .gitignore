@@ -30,6 +30,10 @@
 *.out
 *.app
 src/stenc
+tests/scsi
+
+# dist outputs
+*.tar.gz
 
 # Generated Makefile
 # (meta build system like autotools,
@@ -57,6 +61,7 @@ autom4te.cache
 /compile
 /config.cache
 /config.guess
+/config.h
 /config.h.in
 /config.log
 /config.status
@@ -67,3 +72,6 @@ autom4te.cache
 /install-sh
 /missing
 /stamp-h1
+
+/tests/*.log
+/tests/*.trs

@@ -317,20 +317,20 @@ public:
   std::vector<SSP_KAD> kads;
 
 protected:
-  void loadKADs(SSP_PAGE_BUFFER *buffer, int start);
+  void loadKADs(const SSP_PAGE_BUFFER *buffer, int start);
 };
 
 // class used to parse next block encryption status page
 class SSP_NBES : public KAD_CLASS {
 public:
   SSP_PAGE_NBES nbes;
-  SSP_NBES(SSP_PAGE_BUFFER *buffer);
+  SSP_NBES(const SSP_PAGE_BUFFER *buffer);
 };
 // class used to parse data encryption status page
 class SSP_DES : public KAD_CLASS {
 public:
   SSP_PAGE_DES des;
-  SSP_DES(SSP_PAGE_BUFFER *buffer);
+  SSP_DES(const SSP_PAGE_BUFFER *buffer);
 };
 
 // enum for SCSIEncryptOptions.cryptMode
@@ -353,6 +353,8 @@ SSP_DES *SSPGetDES(std::string tapeDevice);
 // Gets the encryption status from the tape volume
 SSP_NBES *SSPGetNBES(std::string tapeDevice, bool retry);
 // Writes encryption options to the tape drive
+int SCSIInitSDEPage(SCSIEncryptOptions *eOptions,
+                    uint8_t *buffer);
 bool SCSIWriteEncryptOptions(std::string tapeDevice,
                              SCSIEncryptOptions *eOptions);
 // Gets device inquiry

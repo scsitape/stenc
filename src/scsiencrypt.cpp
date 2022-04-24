@@ -194,13 +194,8 @@ SCSI_PAGE_INQ *SCSIGetInquiry(std::string tapeDevice) {
   return status;
 }
 
-// Writes encryption options to the tape drive
-bool SCSIWriteEncryptOptions(std::string tapeDevice,
-                             SCSIEncryptOptions *eOptions) {
-
-  char buffer[1024];
-  memset(&buffer, 0, 1024);
-
+int SCSIInitSDEPage(SCSIEncryptOptions *eOptions,
+                    uint8_t *buffer) {
   SSP_PAGE_SDE options;
   // copy the template over the options
   memset(&options, 0, sizeof(SSP_PAGE_SDE));
@@ -213,23 +208,23 @@ bool SCSIWriteEncryptOptions(std::string tapeDevice,
   options.algorithmIndex = eOptions->algorithmIndex;
   // set the specific options
   switch (eOptions->cryptMode) {
-  case CRYPTMODE_ON: // encrypt, read only encrypted data
-    options.encryptionMode = 2;
-    options.decryptionMode = 2;
-    break;
-  case CRYPTMODE_MIXED: // encrypt, read all data
-    options.encryptionMode = 2;
-    options.decryptionMode = 3;
-    break;
-  case CRYPTMODE_RAWREAD:
-    options.encryptionMode = 2;
-    options.decryptionMode = 1;
-    break;
-  default:
-    byteswap((unsigned char *)options.keyLength, 2, DEFAULT_KEYSIZE);
-    eOptions->cryptoKey = ""; // blank the key
-    eOptions->keyName = ""; // blank the key name, not supported when turned off
-    break;
+    case CRYPTMODE_ON: // encrypt, read only encrypted data
+      options.encryptionMode = 2;
+      options.decryptionMode = 2;
+      break;
+    case CRYPTMODE_MIXED: // encrypt, read all data
+      options.encryptionMode = 2;
+      options.decryptionMode = 3;
+      break;
+    case CRYPTMODE_RAWREAD:
+      options.encryptionMode = 2;
+      options.decryptionMode = 1;
+      break;
+    default:
+      byteswap((unsigned char *)options.keyLength, 2, DEFAULT_KEYSIZE);
+      eOptions->cryptoKey = ""; // blank the key
+      eOptions->keyName = ""; // blank the key name, not supported when turned off
+      break;
   }
 
   if (eOptions->cryptoKey != "") {
@@ -263,7 +258,16 @@ bool SCSIWriteEncryptOptions(std::string tapeDevice,
            pagelen - 4); // set the page length, minus the length and pageCode
 
   // copy the options to the beginning of the buffer
-  memcpy(&buffer, &options, sizeof(SSP_PAGE_SDE));
+  memcpy(buffer, &options, sizeof(SSP_PAGE_SDE));
+  return pagelen;
+}
+
+// Writes encryption options to the tape drive
+bool SCSIWriteEncryptOptions(std::string tapeDevice,
+                             SCSIEncryptOptions *eOptions) {
+  uint8_t buffer[1024];
+  memset(&buffer, 0, 1024);
+  int pagelen = SCSIInitSDEPage(eOptions, buffer);
 
   unsigned char spout_sde_command[SSP_SP_CMD_LEN] = {SSP_SPOUT_OPCODE,
                                                      SSP_SP_PROTOCOL_TDE,
@@ -427,19 +431,19 @@ SCSIEncryptOptions::SCSIEncryptOptions() {
   rdmc = RDMC_DEFAULT;
 }
 
-SSP_NBES::SSP_NBES(SSP_PAGE_BUFFER *buffer) {
+SSP_NBES::SSP_NBES(const SSP_PAGE_BUFFER *buffer) {
   memset(&nbes, 0, sizeof(SSP_PAGE_NBES));
   memcpy(&nbes, buffer, sizeof(SSP_PAGE_NBES));
   loadKADs(buffer, sizeof(SSP_PAGE_NBES));
 }
-SSP_DES::SSP_DES(SSP_PAGE_BUFFER *buffer) {
+SSP_DES::SSP_DES(const SSP_PAGE_BUFFER *buffer) {
   memset(&des, 0, sizeof(SSP_PAGE_DES));
   memcpy(&des, buffer, sizeof(SSP_PAGE_DES));
   loadKADs(buffer, sizeof(SSP_PAGE_DES));
 }
 
-void KAD_CLASS::loadKADs(SSP_PAGE_BUFFER *buffer, int start) {
-  char *rawbuff = (char *)buffer;
+void KAD_CLASS::loadKADs(const SSP_PAGE_BUFFER *buffer, int start) {
+  const char *rawbuff = (const char *)buffer;
   int length = BSSHORT(buffer->length) + 4;
   int pos = start;
   while (pos < length) {

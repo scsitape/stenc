@@ -1,6 +1,6 @@
 AC_INIT([stenc],[1.1.0])
 AC_CONFIG_SRCDIR([src/main.cpp])
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([foreign subdir-objects])
 
 AC_CONFIG_HEADERS([config.h])
 AC_CHECK_HEADER([sys/types.h])
@@ -105,6 +105,6 @@ fi
 	  
 
 
-AC_CONFIG_FILES([Makefile src/Makefile man/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile man/Makefile tests/Makefile])
 AC_OUTPUT 
 
