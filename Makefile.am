@@ -1,2 +1,2 @@
-SUBDIRS = src man
+SUBDIRS = src man tests
 # EXTRA_DIST = buildconf
