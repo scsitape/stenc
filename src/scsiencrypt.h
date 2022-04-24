@@ -37,7 +37,7 @@ GNU General Public License for more details.
 
 // outputs hex in a 2 digit pair
 #define HEX(x)                                                                 \
-  right << setw(2) << setfill('0') << hex << (int)(x) << setfill(' ')
+    std::right << std::setw(2) << std::setfill('0') << std::hex << (int)(x) << std::setfill(' ')
 // macro for a byte swapped short
 #define BSSHORT(x) ((unsigned short)((x[0] << 8) + x[1]))
 // macro for a byte swapped int
