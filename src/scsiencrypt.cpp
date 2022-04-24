@@ -371,13 +371,13 @@ bool SCSIExecute(std::string tapedrive, unsigned char *cmd_p, int cmd_len,
 #ifdef DEBUGSCSI
   std::cout << "SCSI Command: ";
   for (int i = 0; i < cmd_len; i++) {
-    std::cout << std::hex << cmd_p[i];
+    std::cout << HEX(cmd_p[i]);
   }
   std::cout << "\n";
 
   std::cout << "SCSI Data: ";
   for (int i = 0; i < dxfer_len; i++) {
-    std::cout << std::hex << (dxfer_p[i]);
+    std::cout << HEX(dxfer_p[i]));
   }
   std::cout << std::endl;
 #endif
@@ -569,20 +569,20 @@ void outputSense(SCSI_PAGE_SENSE *sd) {
     break;
   }
 
-  std::cerr << " (0x" << std::hex << (sd->senseKey) << ")\n";
+  std::cerr << " (0x" << HEX(sd->senseKey) << ")\n";
 
   std::cerr << std::left << std::setw(25) << " ASC:"
-            << "0x" << std::hex << (sd->addSenseCode) << "\n";
+            << "0x" << HEX(sd->addSenseCode) << "\n";
 
   std::cerr << std::left << std::setw(25) << " ASCQ:"
-            << "0x" << std::hex << (sd->addSenseCodeQual) << "\n";
+            << "0x" << HEX(sd->addSenseCodeQual) << "\n";
 
   if (sd->addSenseLen > 0) {
     std::cerr << std::left << std::setw(25) << " Additional data:" 
     		<< "0x";
 
     for (int i = 0; i < sd->addSenseLen; i++) {
-      std::cerr << std::hex << (sd->addSenseData[i]);
+      std::cerr <<  HEX(sd->addSenseData[i]);
     }
     std::cerr << "\n";
   }
@@ -592,7 +592,7 @@ void outputSense(SCSI_PAGE_SENSE *sd) {
   char *rawsense = (char *)sd;
 
   for (int i = 0; i < sizeof(SCSI_PAGE_SENSE); i++) {
-    std::cerr << std::hex << (rawsense[i]);
+    std::cerr << HEX(rawsense[i]);
   }
   std::cerr << "\n";
 #endif
