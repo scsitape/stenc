@@ -193,16 +193,10 @@ data, the key descriptor on the volume will be displayed as part of the
 device status. This can be useful for determining which key goes to
 which volume.
 
-AUTHOR
-======
-
-Written by **John Coleman** and **Samuel Martinez Jr.** of SunWest
-Educational Credit Union.
-
 REPORTING BUGS
 ==============
 
-Report **stenc** bugs to *jcoleman1981@live.com*.
+Report **stenc** bugs to https://github.com/scsitape/stenc/issues
 
 PROJECT UPDATES
 ===============
