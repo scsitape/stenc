@@ -222,21 +222,20 @@ int SCSIInitSDEPage(SCSIEncryptOptions *eOptions,
       break;
     default:
       byteswap((unsigned char *)options.keyLength, 2, DEFAULT_KEYSIZE);
-      eOptions->cryptoKey = ""; // blank the key
-      eOptions->keyName = ""; // blank the key name, not supported when turned off
+      eOptions->cryptoKey.clear(); // blank the key
+      eOptions->keyName.clear(); // blank the key name, not supported when turned off
       break;
   }
 
-  if (eOptions->cryptoKey != "") {
+  if (!eOptions->cryptoKey.empty()) {
     // byte swap the keylength
     byteswap((unsigned char *)&options.keyLength, 2,
              eOptions->cryptoKey.size());
     // copy the crypto key into the options
-    eOptions->cryptoKey.copy((char *)&options.keyData,
-                             eOptions->cryptoKey.size(), 0);
+    std::copy(eOptions->cryptoKey.begin(), eOptions->cryptoKey.end(), options.keyData);
   }
   // create the key descriptor
-  if (eOptions->keyName != "") {
+  if (!eOptions->keyName.empty()) {
     SSP_KAD kad;
     memset(&kad, 0, sizeof(kad));
     // set the descriptor length to the length of the keyName
@@ -381,7 +380,7 @@ bool SCSIExecute(std::string tapedrive, unsigned char *cmd_p, int cmd_len,
 
   std::cout << "SCSI Data: ";
   for (int i = 0; i < dxfer_len; i++) {
-    std::cout << HEX(dxfer_p[i]));
+    std::cout << HEX(dxfer_p[i]);
   }
   std::cout << std::endl;
 #endif
@@ -425,7 +424,7 @@ void byteswap(unsigned char *array, int size, int value) {
 SCSIEncryptOptions::SCSIEncryptOptions() {
   cryptMode = CRYPTMODE_OFF;
   algorithmIndex = DEFAULT_ALGORITHM;
-  cryptoKey = "";
+  cryptoKey = {};
   CKOD = false;
   keyName = "";
   rdmc = RDMC_DEFAULT;

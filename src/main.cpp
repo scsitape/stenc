@@ -13,11 +13,10 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-#include "keyinfo.h"
 #include "scsiencrypt.h"
 
+#include <charconv>
 #include <config.h>
-#include <termios.h>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -25,10 +24,14 @@ GNU General Public License for more details.
 #include <iomanip>
 #include <ios>
 #include <iostream>
+#include <optional>
+#include <stdint.h>
 #include <sstream>
 #include <string>
 #include <sys/stat.h>
+#include <termios.h>
 #include <time.h>
+#include <vector>
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
@@ -72,6 +75,33 @@ std::string randomKey(int length);
 std::string timestamp();
 void echo(bool);
 std::ofstream logFile;
+
+static std::optional<std::vector<uint8_t>> from_hex_chars(const std::string& s)
+{
+  auto it = s.data();
+  std::vector<uint8_t> bytes;
+
+  if (s.size() % 2) {  // treated as if there is an implicit leading 0
+    uint8_t result;
+    auto [ptr, ec] { std::from_chars(it, it + 1, result, 16) };
+    if (ec != errc {}) {
+      return {};
+    }
+    bytes.push_back(result);
+    it = ptr;
+  }
+
+  while (*it) {
+    uint8_t result;
+    auto [ptr, ec] { std::from_chars(it, it + 2, result, 16) };
+    if (ec != errc {}) {
+      return {};
+    }
+    bytes.push_back(result);
+    it = ptr;
+  }
+  return bytes;
+}
 
 int main(int argc, char **argv) {
   bitcheck bc;
@@ -262,11 +292,9 @@ int main(int argc, char **argv) {
     exit(EXIT_SUCCESS);
   }
 
-  Keyinfo ki{};
   if (drvOptions.cryptMode != CRYPTMODE_OFF) {
     if (keyFile == "") {
-      std::string p1 = "01";
-      std::string p2 = "02";
+      std::string p1, p2;
       bool done = false;
       while (!done) {
         std::cout << "Enter key in hex format: ";
@@ -280,17 +308,20 @@ int main(int argc, char **argv) {
         std::cout << "\n";
         if (p1 != p2) {
           std::cout << "Keys do not match!\n";
+        } else if (p1.empty()) {
+          std::cout << "Key cannot be empty!\n";
         } else {
-          ki.load(p1);
-          if (ki.valid) {
+          if (auto key_bytes = from_hex_chars(p1)) {
             std::cout << "Set encryption using this key? [y/n]: ";
             std::string ans = "";
             getline(std::cin, ans);
             if (ans == "y") {
+              drvOptions.cryptoKey = *key_bytes;
               done = true;
             }
-          } else
+          } else {
             std::cout << "Invalid key!\n";
+          }
         }
       }
       drvOptions.keyName = keyDesc;
@@ -303,14 +334,15 @@ int main(int argc, char **argv) {
         getline(myfile, keyInput);
         getline(myfile, keyDesc);
         myfile.close();
-        ki.load(keyInput);
-        if (!ki.valid)
+        if (auto key_bytes = from_hex_chars(keyInput)) {
+          drvOptions.cryptoKey = *key_bytes;
+        } else {
           errorOut("Invalid key found in '" + keyFile + "'");
+        }
         drvOptions.keyName = keyDesc;
       } else
         errorOut("Could not open '" + keyFile + "' for reading");
     }
-    drvOptions.cryptoKey.assign(ki.key, ki.keySize);
   }
 
   // Write the options to the tape device
@@ -332,10 +364,9 @@ int main(int argc, char **argv) {
     if (drvOptions.cryptMode != CRYPTMODE_OFF) {
       std::stringstream msg;
       msg << "Encryption turned on for device '" << tapeDrive << "'. ";
-      if (drvOptions.keyName.size() == 0)
-        msg << "Key Checksum: " << ki.check;
-      else
+      if (!drvOptions.keyName.empty()) {
         msg << "Key Descriptor: '" << drvOptions.keyName << "'";
+      }
       msg << " Key Instance: " << std::dec << BSLONG(opt->des.keyInstance)
           << std::endl;
 
