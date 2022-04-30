@@ -16,7 +16,6 @@ jobs:
     - name: Install pandoc package
     run: |
     sudo apt-get -y install pandoc
-    - uses: actions/checkout@v3
     - name: autoconf
       run: autoreconf -i
     - name: configure
