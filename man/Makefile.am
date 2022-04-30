@@ -9,3 +9,7 @@ stenc.1: stenc.rst
 
 clean:
 	rm -f stenc.1
+
+distclean: clean
+	rm -f Makefile
+
