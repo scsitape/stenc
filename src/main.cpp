@@ -76,7 +76,7 @@ std::string timestamp();
 void echo(bool);
 std::ofstream logFile;
 
-static std::optional<std::vector<uint8_t>> from_hex_chars(const std::string& s)
+static std::optional<std::vector<uint8_t>> key_from_hex_chars(const std::string& s)
 {
   auto it = s.data();
   std::vector<uint8_t> bytes;
@@ -294,7 +294,8 @@ int main(int argc, char **argv) {
 
   if (drvOptions.cryptMode != CRYPTMODE_OFF) {
     if (keyFile == "") {
-      std::string p1, p2;
+      std::string p1;
+      std::string p2;
       bool done = false;
       while (!done) {
         std::cout << "Enter key in hex format: ";
@@ -311,7 +312,7 @@ int main(int argc, char **argv) {
         } else if (p1.empty()) {
           std::cout << "Key cannot be empty!\n";
         } else {
-          if (auto key_bytes = from_hex_chars(p1)) {
+          if (auto key_bytes = key_from_hex_chars(p1)) {
             std::cout << "Set encryption using this key? [y/n]: ";
             std::string ans = "";
             getline(std::cin, ans);
@@ -334,7 +335,7 @@ int main(int argc, char **argv) {
         getline(myfile, keyInput);
         getline(myfile, keyDesc);
         myfile.close();
-        if (auto key_bytes = from_hex_chars(keyInput)) {
+        if (auto key_bytes = key_from_hex_chars(keyInput)) {
           drvOptions.cryptoKey = *key_bytes;
         } else {
           errorOut("Invalid key found in '" + keyFile + "'");
