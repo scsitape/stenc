@@ -6,12 +6,16 @@ on:
   pull_request:
     branches: [ master ]
 
+
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
+    - uses: actions/checkout@v3
+    #install pandoc
+    - name: Install pandoc package
+    run: |
+    sudo apt-get -y install pandoc
     - uses: actions/checkout@v3
     - name: autoconf
       run: autoreconf -i
