@@ -1,3 +1,5 @@
+man1_MANS = stenc.1
+
 EXTRA_DIST = stenc.rst
 
 all: stenc.1
