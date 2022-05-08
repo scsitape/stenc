@@ -28,6 +28,7 @@ GNU General Public License for more details.
 #include <stdint.h>
 #include <sstream>
 #include <string>
+#include <sys/mtio.h>
 #include <sys/stat.h>
 #include <termios.h>
 #include <time.h>
@@ -132,7 +133,7 @@ int main(int argc, char **argv) {
     break;
   }
 
-  std::string tapeDrive = "";
+  std::string tapeDrive;
   int action = 0; // 0 = status, 1 =setting param, 2 = generating key
   std::string keyFile, keyDesc;
   int keyLength = 0;
@@ -248,9 +249,14 @@ int main(int argc, char **argv) {
     std::cout << "Permissions of keyfile set to 600\n";
     exit(EXIT_SUCCESS);
   }
-  // validate the tape device
-  if (tapeDrive == "") {
-    errorOut("Tape drive device must be specified with the -f option");
+  // select device from env variable or system default if not given with -f
+  if (tapeDrive.empty()) {
+    const char *env_tape = getenv("TAPE");
+    if (env_tape != nullptr) {
+      tapeDrive = env_tape;
+    } else {
+      tapeDrive = DEFTAPE;
+    }
   }
   if (drvOptions.cryptMode == CRYPTMODE_RAWREAD &&
       drvOptions.rdmc == RDMC_PROTECT) {
@@ -258,18 +264,6 @@ int main(int argc, char **argv) {
         "'--protect' is not valid when setting encryption mode to 'rawread'");
   }
 
-#ifndef DISABLE_DEVICE_NAME_CONVERSION
-  if (tapeDrive.find(".") == std::string::npos) {
-    if (tapeDrive.substr(0, 7) == "/dev/st") {
-      tapeDrive = "/dev/nst" + tapeDrive.substr(7, tapeDrive.size() - 6);
-    }
-
-    if (tapeDrive.substr(0, 8) == "/dev/rmt" &&
-        tapeDrive.substr(tapeDrive.size() - 2, 2) != ".1") {
-      tapeDrive = "/dev/rmt" + tapeDrive.substr(8, tapeDrive.size() - 7) + ".1";
-    }
-  }
-#endif
   if (getuid() != 0) {
     errorOut("You must be root to read or set encryption options on a drive!");
   }
