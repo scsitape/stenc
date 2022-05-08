@@ -28,10 +28,10 @@ GNU General Public License for more details.
 #include <stdint.h>
 #include <sstream>
 #include <string>
+#include <syslog.h>
 #include <sys/mtio.h>
 #include <sys/stat.h>
 #include <termios.h>
-#include <time.h>
 #include <vector>
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
@@ -40,9 +40,6 @@ GNU General Public License for more details.
 #include <string.h>
 #endif
 
-#include <ostream>
-
-#define LOGFILE "/var/log/stenc"
 
 typedef struct {
 #if STENC_BIG_ENDIAN == 0
@@ -73,9 +70,7 @@ void inquiryDrive(std::string tapeDevice);
 void showDriveStatus(std::string tapeDevice, bool detail);
 void showVolumeStatus(std::string tapeDevice);
 std::string randomKey(int length);
-std::string timestamp();
 void echo(bool);
-std::ofstream logFile;
 
 static std::optional<std::vector<uint8_t>> key_from_hex_chars(const std::string& s)
 {
@@ -267,12 +262,7 @@ int main(int argc, char **argv) {
   if (getuid() != 0) {
     errorOut("You must be root to read or set encryption options on a drive!");
   }
-  logFile.open(LOGFILE, std::ios::app);
-  if (!logFile.is_open()) {
-    std::cout << "Warning: Could not open '" << LOGFILE
-              << "' for key change auditing!\n";
-  }
-  chmod(LOGFILE, 0600);
+  openlog("stenc", LOG_CONS, LOG_USER);
 
   if (action == 0) {
     std::cout << "Status for " << tapeDrive << "\n"
@@ -365,9 +355,7 @@ int main(int argc, char **argv) {
       msg << " Key Instance: " << std::dec << BSLONG(opt->des.keyInstance)
           << std::endl;
 
-      if (logFile.is_open()) {
-        logFile << timestamp() << ": " << msg.str();
-      }
+      syslog(LOG_NOTICE, "%s", msg.str().c_str());
     } else {
       std::stringstream msg{};
 
@@ -375,11 +363,9 @@ int main(int argc, char **argv) {
       msg << " Key Instance: " << std::dec << BSLONG(opt->des.keyInstance)
           << std::endl;
 
-      if (logFile.is_open())
-        logFile << timestamp() << ": " << msg.str();
+      syslog(LOG_NOTICE, "%s", msg.str().c_str());
     }
-    std::cout << "Success! See '" << LOGFILE << "' for a key change audit log."
-              << std::endl;
+    std::cout << "Success! See system logs for a key change audit log.\n";
     exit(EXIT_SUCCESS);
   }
   if (drvOptions.cryptMode != CRYPTMODE_OFF) {
@@ -605,16 +591,6 @@ void echo(bool on = true) {
   settings.c_lflag =
       on ? (settings.c_lflag | ECHO) : (settings.c_lflag & ~(ECHO));
   tcsetattr(STDIN_FILENO, TCSANOW, &settings);
-}
-
-std::string timestamp() {
-  time_t tm{};
-  time(&tm);
-  char buffer[80];
-  int len = strftime((char *)&buffer, 80, "%Y-%m-%d", localtime(&tm));
-  std::string val;
-  val.assign(buffer, len);
-  return (val);
 }
 
 std::string randomKey(int length) {
