@@ -1,7 +1,9 @@
 xxxx-xx-xx 
+* Version upgraded to 2.x.x
 * Removed KeyInfo; use standard library to parse hex strings
 * define C++17 as minimal C++ version
 * build manpage with pandoc
+* Dropped AIX support. If you can test and develop code for AIX, please contact us.
 
 2022-04-25 Jonas Stein <news@jonasstein.de>
 * Version upgraded to 1.1.1
