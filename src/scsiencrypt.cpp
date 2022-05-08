@@ -39,13 +39,6 @@ GNU General Public License for more details.
 #elif defined(OS_FREEBSD)
 #include <cam/scsi/scsi_sg.h>
 #define SCSI_TIMEOUT 5000
-#elif defined(OS_AIX)
-#define _LINUX_SOURCE_COMPAT
-#include <sys/Atape.h>
-#include <sys/scsi.h>
-#include <sys/scsi_buf.h>
-#include <sys/tape.h>
-#define SCSI_TIMEOUT 5
 #else
 #error "OS type is not set"
 #endif
@@ -322,52 +315,6 @@ bool SCSIExecute(std::string tapedrive, unsigned char *cmd_p, int cmd_len,
   } while (errno != 0 && retries <= RETRYCOUNT);
 
   sresult = cmdio.status;
-#elif defined(OS_AIX) // AIX System
-
-  errno = 0;
-  sg_fd = openx((char *)tapedevice, O_RDONLY, NULL, SC_DIAGNOSTIC);
-  if (!sg_fd || sg_fd == -1) {
-    std::cerr << "Could not open device '" << tapedevice << "'" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  struct sc_iocmd cmdio;
-  memset(&cmdio, 0, sizeof(struct sc_iocmd));
-  // copy the command bytes into the first part of the structure
-  memcpy(&cmdio.scsi_cdb, cmd_p, cmd_len);
-  cmdio.buffer = (char *)dxfer_p;
-  cmdio.timeout_value = SCSI_TIMEOUT;
-  cmdio.command_length = cmd_len;
-  cmdio.data_length = dxfer_len;
-  cmdio.status_validity = SC_SCSI_ERROR;
-  cmdio.flags = (cmd_to_device) ? B_WRITE : B_READ;
-
-  retries = 0;
-  do {
-    errno = 0;
-    eresult = ioctl(sg_fd, STIOCMD, &cmdio);
-    sresult = (int)cmdio.scsi_bus_status;
-    if (eresult != 0)
-      ioerr = errno;
-    retries++;
-  } while (errno != 0 && retries <= RETRYCOUNT);
-
-  if (sresult == SC_CHECK_CONDITION) { // get the sense data
-
-    struct sc_iocmd scmdio;
-    memset(&scmdio, 0, sizeof(struct sc_iocmd));
-    // copy the command bytes into the first part of the structure
-    memcpy(&scmdio.scsi_cdb, &scsi_sense_command, sizeof(scsi_sense_command));
-    scmdio.buffer = (char *)sd;
-    scmdio.timeout_value = SCSI_TIMEOUT;
-    scmdio.command_length = sizeof(scsi_sense_command);
-    scmdio.data_length = sizeof(SCSI_PAGE_SENSE);
-    scmdio.status_validity = SC_SCSI_ERROR;
-    scmdio.flags = B_READ;
-
-    errno = 0;
-    ioctl(sg_fd, STIOCMD, &scmdio);
-  }
 #else
 #error "OS type is not set"
 #endif
@@ -474,10 +421,6 @@ bool moveTape(std::string tapeDevice, int count, bool dirForward) {
   mt_command.mt_op = (dirForward) ? MTFSR : MTBSR;
   mt_command.mt_count = count;
   ioctl(sg_fd, MTIOCTOP, &mt_command);
-#elif defined(OS_AIX)
-  mt_command.st_op = (dirForward) ? MTFSR : MTBSR;
-  mt_command.st_count = count;
-  ioctl(sg_fd, STIOCTOP, &mt_command);
 #else
 #error "OS type is not set"
 #endif
@@ -509,33 +452,6 @@ void readIOError(int err) {
   case EPERM:
     std::cerr << "You do not have privileges to do this.  Are you root?\n";
     break;
-#ifdef OS_AIX
-  case EBADF:
-    std::cerr << "EBADF\n";
-    break;
-  case EFAULT:
-    std::cerr << "EFAULT\n";
-    break;
-  case EINTR:
-    std::cerr << "EINTR\n";
-    break;
-  case EINVAL:
-    std::cerr << "Invalid device.\n";
-    break;
-
-  case ENOTTY:
-    std::cerr << "ENOTTY\n";
-    break;
-
-  case ENODEV:
-    std::cerr << "Device is not responding.\n";
-    break;
-
-  case ENXIO:
-    std::cerr << "ENXIO\n";
-    break;
-
-#endif
   default:
     if (errno != 0) {
       std::cerr << "0x" << std::hex << errno << " " << strerror(errno) << "\n";

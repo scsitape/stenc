@@ -17,7 +17,7 @@ SYNOPSIS
 AVAILABILITY
 ============
 
-Linux, AIX
+Linux
 
 DESCRIPTION
 ===========

@@ -65,10 +65,6 @@ case $system in
 		AC_DEFINE(OS_FREEBSD,1,"")
 		AC_MSG_RESULT(FreeBSD)
 		;;
-	AIX)
-		AC_DEFINE(OS_AIX,1,"")
-		AC_MSG_RESULT(AIX)
-		;;
 	*)
 		AC_MSG_ERROR(unknown OS type: $system)
 		;;
@@ -79,12 +75,7 @@ AC_ARG_WITH([static-libgcc],
             [AS_HELP_STRING([--with-static-libgcc],[build with static libgcc library])],
             [
 	     AC_MSG_RESULT(yes)
-	     if test "${system}" = "AIX"; then
-	        LDFLAGS="${LDFLAGS} -static-libgcc -Wl,-bstatic -lstdc++ -Wl,-bdynamic -lsupc++"
-	     else
-		LDFLAGS="${LDFLAGS} -static-libgcc -Wl,-static -lstdc++ -lsupc++"
-	   	
-	     fi
+	     LDFLAGS="${LDFLAGS} -static-libgcc -Wl,-static -lstdc++ -lsupc++"
 	     ],
             [AC_MSG_RESULT(no)])
 
