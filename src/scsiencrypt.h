@@ -53,6 +53,8 @@ GNU General Public License for more details.
 #include <sys/types.h>
 #endif
 
+#include <vector>
+
 #ifdef BYTE_ORDER
 #define STENC_BYTE_ORDER BYTE_ORDER
 #endif
@@ -343,7 +345,7 @@ public:
   bool CKOD;
   int cryptMode;
   unsigned int algorithmIndex;
-  std::string cryptoKey;
+  std::vector<uint8_t> cryptoKey;
   std::string keyName;
   SCSIEncryptOptions();
 };
