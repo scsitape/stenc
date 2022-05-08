@@ -88,26 +88,9 @@ AC_ARG_WITH([static-libgcc],
 	     ],
             [AC_MSG_RESULT(no)])
 
-
-AC_MSG_CHECKING(whether to convert rewinding device names to non-rewinding device names)
-AC_ARG_ENABLE([device-name-conversion],
-            [AS_HELP_STRING([--enable-device-name-conversion],[converts /dev/st* to /dev/st*.1 and /dev/rmt* to /dev/rmt*.1 to prevent rewinds.  Enabled by default.])],
-	    [enable_dnc=$enableval],
-	    [enable_dnc="yes"]
-	    )
-
-if test "$enable_dnc" = "yes"; then
-	  AC_MSG_RESULT(yes)
-else
-	  AC_DEFINE(DISABLE_DEVICE_NAME_CONVERSION,1,"")
-	  AC_MSG_RESULT(no)
-fi
-	  
-
 AC_CHECK_PROG(PANDOC, [pandoc], [yes])
 AM_CONDITIONAL([FOUND_PANDOC], [test "x$PANDOC" = xyes])
 AM_COND_IF([FOUND_PANDOC],,[AC_MSG_ERROR([required program 'pandoc' not found.])])
 
 AC_CONFIG_FILES([Makefile src/Makefile man/Makefile tests/Makefile])
 AC_OUTPUT 
-
