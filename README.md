@@ -5,16 +5,15 @@ Stenc
 -----
 
 SCSI Tape Encryption Manager - Manages encryption on LTO tape drives (starting with generation 4) with hardware-based encryption. 
-Program should work on any other SCSI security protocol (SSP) capable tape drives. Built specifically for Linux and AIX. 
+Program should work on any other SCSI security protocol (SSP) capable tape drives. Built specifically for Linux. 
 Supports key change auditing and key descriptors (uKAD). 
 
 Features
 --------
 
 * SCSI hardware-based encryption management
-* Supports AIX and Linux
+* Supports Linux 
 * Supports most SSP compliant devices, such as LTO-4 tape drives
-* Random key generation
 * Key change audit logging
 * AES Encryption
 * Key Descriptor Management
@@ -56,6 +55,11 @@ Drive Key Desc.(uKAD):   mykey20170113
 Linux Packages
 --------------
 [![Packaging status](https://repology.org/badge/vertical-allrepos/stenc.svg)](https://repology.org/metapackage/stenc)
+
+
+Requirements
+------------
+AIX support was suspended on 2022-05-08 until we have contributors who can develop and test the code on AIX.
 
 
 License
