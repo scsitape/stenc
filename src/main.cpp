@@ -69,7 +69,6 @@ void errorOut(std::string const message);
 void inquiryDrive(std::string tapeDevice);
 void showDriveStatus(std::string tapeDevice, bool detail);
 void showVolumeStatus(std::string tapeDevice);
-std::string randomKey(int length);
 void echo(bool);
 
 static std::optional<std::vector<uint8_t>> key_from_hex_chars(const std::string& s)
@@ -148,21 +147,7 @@ int main(int argc, char **argv) {
       std::cout << "https://github.com/scsitape/stenc \n";
       exit(EXIT_SUCCESS);
     }
-    if (thisCmd == "-g") { // Check if the help flag was passed.  If it was,
-                           // show usage and exit
-      if (nextCmd == "")
-        errorOut("Key size must be specified when using -g");
-      i++; // skip the next argument
-      keyLength = std::atoi(nextCmd.c_str());
-      if (keyLength % 8 != 0)
-        errorOut("Key size must be divisible by 8");
-      keyLength = keyLength / 8;
-      if (keyLength > SSP_KEY_LENGTH) {
-        std::cout << "Warning: Keys over " << (SSP_KEY_LENGTH * 8)
-                  << " bits cannot be used by this program! \n";
-      }
-      action = 2; // generating key
-    } else if (thisCmd == "-e") {
+    if (thisCmd == "-e") {
       if (nextCmd == "")
         errorOut("Key file not specified after -k option");
       if (nextCmd == "on")
@@ -225,25 +210,6 @@ int main(int argc, char **argv) {
     }
   }
 
-  if (action == 2) { // generate key
-    if (keyFile == "") {
-      errorOut("Specify file to save into with the -k argument.");
-    }
-
-    std::string const newkey = randomKey(keyLength);
-    std::ofstream kf{};
-    umask(077); // make sure that no one else can read the new key file
-    kf.open(keyFile.c_str(), std::ios::trunc);
-    if (!kf.is_open()) {
-      errorOut("Could not open '" + keyFile + "' for writing.");
-    }
-    kf << newkey << keyDesc;
-    kf.close();
-    std::cout << "Random key saved into '" << keyFile << "'\n";
-    chmod(keyFile.c_str(), 0600);
-    std::cout << "Permissions of keyfile set to 600\n";
-    exit(EXIT_SUCCESS);
-  }
   // select device from env variable or system default if not given with -f
   if (tapeDrive.empty()) {
     const char *env_tape = getenv("TAPE");
@@ -385,9 +351,9 @@ void errorOut(std::string const message) {
 // shows the command usage
 void showUsage() {
   std::cout
-      << "Usage: stenc --version | -g <length> -k <file> [-kd <description>] | "
+      << "Usage: stenc --version | "
          "-f <device> [--detail] [-e <on/mixed/rawread/off> [-k <file>] "
-	     "[-kd <description>] [-a <index>] [--protect | --unprotect] [--ckod] ]\n\n"
+         "[-kd <description>] [-a <index>] [--protect | --unprotect] [--ckod] ]\n\n"
          "Type 'man stenc' for more information.\n";
 }
 void inquiryDrive(std::string tapeDevice) {
@@ -591,39 +557,4 @@ void echo(bool on = true) {
   settings.c_lflag =
       on ? (settings.c_lflag | ECHO) : (settings.c_lflag & ~(ECHO));
   tcsetattr(STDIN_FILENO, TCSANOW, &settings);
-}
-
-std::string randomKey(int length) {
-  unsigned char rnd;
-  std::stringstream retval{};
-  std::ifstream random{};
-
-  // Under Linux and AIX /dev/random provides much more cryptographically secure
-  // random output than rand()
-  random.open("/dev/random", std::ios::in | std::ios::binary);
-  if (random.is_open()) {
-    for (int i = 0; i < length; i++) {
-      random.read(reinterpret_cast<char *>(&rnd), 1);
-      retval << std::hex << std::setfill('0') << setw(2) << static_cast<int>(rnd);
-    }
-    random.close();
-  } else {
-    std::cout << "Enter random keys on the keyboard to seed the generator.\n"
-                 "End by pressing enter...\n";
-
-    double check = 0;
-    char c = 0;
-    echo(false);
-    while (c != 10) {
-      check += (int)c;
-      c = getchar();
-    }
-    echo(true);
-    srand(time(NULL) + (int)check);
-    for (int i = 0; i < length; i++) {
-      retval << std::hex << (std::rand() % 256);
-    }
-  }
-  retval << std::endl;
-  return (retval.str());
 }
