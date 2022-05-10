@@ -12,15 +12,18 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-#include <bitset>
 #include <config.h>
-#include <errno.h>
-#include <fcntl.h>
+
+#include <bitset>
+#include <cerrno>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <string>
+
+#include <fcntl.h>
 #include <sys/ioctl.h>
+#include <sys/mtio.h>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -45,93 +48,40 @@ GNU General Public License for more details.
 #endif
 
 #include "scsiencrypt.h"
-#include <sys/mtio.h>
 
-#define SSP_SPIN_OPCODE 0XA2
-#define SSP_SPOUT_OPCODE 0XB5
-#define SSP_SP_CMD_LEN 12
-#define SSP_SP_PROTOCOL_TDE 0X20
+constexpr uint8_t SSP_SPIN_OPCODE = 0xa2;
+constexpr uint8_t SSP_SPOUT_OPCODE = 0xb5;
+constexpr uint8_t SSP_SP_CMD_LEN = 12;
+constexpr uint8_t SSP_SP_PROTOCOL_TDE = 0x20;
 
-#define RETRYCOUNT 1
+constexpr int RETRYCOUNT = 1;
 
-#define BSINTTOCHAR(x)                                                         \
-  (unsigned char)((x & 0xff000000) >> 24),                                     \
-      (unsigned char)((x & 0x00ff0000) >> 16),                                 \
-      (unsigned char)((x & 0x0000ff00) >> 8), (unsigned char)(x & 0x000000ff)
+#define BSINTTOCHAR(x) \
+  static_cast<uint8_t>((x) >> 24), \
+  static_cast<uint8_t>((x) >> 16), \
+  static_cast<uint8_t>((x) >> 8), \
+  static_cast<uint8_t>((x))
 
 void byteswap(unsigned char *array, int size, int value);
-bool moveTape(std::string tapeDevice, int count, bool dirForward);
+bool moveTape(const std::string& tapeDevice, int count, bool dirForward);
 void outputSense(SCSI_PAGE_SENSE *sd);
-void readIOError(int err);
-
-bool SCSIExecute(std::string tapedevice, unsigned char *cmd_p, int cmd_len,
+bool SCSIExecute(const std::string& tapedevice, unsigned char *cmd_p, int cmd_len,
                  unsigned char *dxfer_p, int dxfer_len, bool cmd_to_device,
                  bool show_error);
 
-typedef struct { // structure for setting data encryption
-  unsigned char pageCode[2];
-  unsigned char length[2];
-
-#if STENC_BIG_ENDIAN == 1
-  unsigned char scope : 3;
-  unsigned char res_bits_1 : 4;
-  unsigned char lock : 1;
-#else
-  unsigned char lock : 1;
-  unsigned char res_bits_1 : 4;
-  unsigned char scope : 3;
-#endif
-
-#if STENC_BIG_ENDIAN == 1
-  unsigned char CEEM : 2;
-  unsigned char RDMC : 2;
-  unsigned char sdk : 1;
-  unsigned char ckod : 1;
-  unsigned char ckorp : 1;
-  unsigned char ckorl : 1;
-#else
-  unsigned char ckorl : 1;
-  unsigned char ckorp : 1;
-  unsigned char ckod : 1;
-  unsigned char sdk : 1;
-  unsigned char RDMC : 2;
-  unsigned char CEEM : 2;
-#endif
-  unsigned char encryptionMode;
-  unsigned char decryptionMode;
-  unsigned char algorithmIndex;
-  unsigned char keyFormat;
-  unsigned char res_bits_2[8];
-  unsigned char keyLength[2];
-  unsigned char keyData[SSP_KEY_LENGTH];
-} SSP_PAGE_SDE;
-
-unsigned char scsi_sense_command[6] = {0x03, 0, 0, 0, sizeof(SCSI_PAGE_SENSE),
-                                       0},
-              scsi_inq_command[6] = {0x12, 0, 0, 0, sizeof(SCSI_PAGE_INQ), 0},
-              spin_des_command[SSP_SP_CMD_LEN] = {SSP_SPIN_OPCODE,
-                                                  SSP_SP_PROTOCOL_TDE,
-                                                  0,
-                                                  0X20,
-                                                  0,
-                                                  0,
-                                                  BSINTTOCHAR(
-                                                      sizeof(SSP_PAGE_BUFFER)),
-                                                  0,
-                                                  0},
-              spin_nbes_command[SSP_SP_CMD_LEN] = {
-                  SSP_SPIN_OPCODE,
-                  SSP_SP_PROTOCOL_TDE,
-                  0,
-                  0X21,
-                  0,
-                  0,
-                  BSINTTOCHAR(sizeof(SSP_PAGE_BUFFER)),
-                  0,
-                  0};
-
 // Gets encryption options on the tape drive
-SSP_DES *SSPGetDES(std::string tapeDevice) {
+SSP_DES *SSPGetDES(const std::string& tapeDevice) {
+  const uint8_t spin_des_command[] {
+    SSP_SPIN_OPCODE,
+    SSP_SP_PROTOCOL_TDE,
+    0,
+    0X20,
+    0,
+    0,
+    BSINTTOCHAR(sizeof(SSP_PAGE_BUFFER)),
+    0,
+    0,
+  };
   SSP_PAGE_BUFFER buffer;
   memset(&buffer, 0, sizeof(SSP_PAGE_BUFFER));
   if (!SCSIExecute(tapeDevice, (unsigned char *)&spin_des_command,
@@ -144,8 +94,18 @@ SSP_DES *SSPGetDES(std::string tapeDevice) {
 }
 
 // Gets encryption options on the tape drive
-SSP_NBES *SSPGetNBES(std::string tapeDevice, bool retry) {
-
+SSP_NBES *SSPGetNBES(const std::string& tapeDevice, bool retry) {
+  const uint8_t spin_nbes_command[] {
+    SSP_SPIN_OPCODE,
+    SSP_SP_PROTOCOL_TDE,
+    0,
+    0X21,
+    0,
+    0,
+    BSINTTOCHAR(sizeof(SSP_PAGE_BUFFER)),
+    0,
+    0,
+  };
   SSP_PAGE_BUFFER buffer;
   memset(&buffer, 0, sizeof(SSP_PAGE_BUFFER));
   if (!SCSIExecute(tapeDevice, (unsigned char *)&spin_nbes_command,
@@ -177,7 +137,8 @@ SSP_NBES *SSPGetNBES(std::string tapeDevice, bool retry) {
 }
 
 // Sends and inquiry to the device
-SCSI_PAGE_INQ *SCSIGetInquiry(std::string tapeDevice) {
+SCSI_PAGE_INQ *SCSIGetInquiry(const std::string& tapeDevice) {
+  const uint8_t scsi_inq_command[] {0x12, 0, 0, 0, sizeof(SCSI_PAGE_INQ), 0};
   SCSI_PAGE_INQ *status = new SCSI_PAGE_INQ;
   memset(status, 0, sizeof(SCSI_PAGE_INQ));
   if (!SCSIExecute(tapeDevice, (unsigned char *)&scsi_inq_command,
@@ -256,21 +217,22 @@ int SCSIInitSDEPage(SCSIEncryptOptions *eOptions,
 }
 
 // Writes encryption options to the tape drive
-bool SCSIWriteEncryptOptions(std::string tapeDevice,
+bool SCSIWriteEncryptOptions(const std::string& tapeDevice,
                              SCSIEncryptOptions *eOptions) {
-  uint8_t buffer[1024];
-  memset(&buffer, 0, 1024);
+  uint8_t buffer[1024] {};
   int pagelen = SCSIInitSDEPage(eOptions, buffer);
 
-  unsigned char spout_sde_command[SSP_SP_CMD_LEN] = {SSP_SPOUT_OPCODE,
-                                                     SSP_SP_PROTOCOL_TDE,
-                                                     0,
-                                                     0X10,
-                                                     0,
-                                                     0,
-                                                     BSINTTOCHAR(pagelen),
-                                                     0,
-                                                     0};
+  const uint8_t spout_sde_command[] {
+    SSP_SPOUT_OPCODE,
+    SSP_SP_PROTOCOL_TDE,
+    0,
+    0X10,
+    0,
+    0,
+    BSINTTOCHAR(pagelen),
+    0,
+    0,
+  };
 
   // return whether or not the command executed
   return SCSIExecute(tapeDevice, (unsigned char *)&spout_sde_command,
@@ -278,7 +240,7 @@ bool SCSIWriteEncryptOptions(std::string tapeDevice,
                      pagelen, true, true);
 }
 
-bool SCSIExecute(std::string tapedrive, unsigned char *cmd_p, int cmd_len,
+bool SCSIExecute(const std::string& tapedrive, unsigned char *cmd_p, int cmd_len,
                  unsigned char *dxfer_p, int dxfer_len, bool cmd_to_device,
                  bool show_error) {
   const char *tapedevice = tapedrive.c_str();
@@ -287,11 +249,10 @@ bool SCSIExecute(std::string tapedrive, unsigned char *cmd_p, int cmd_len,
   memset(sd, 0, sizeof(SCSI_PAGE_SENSE));
 
 #if defined(OS_LINUX)
-  errno = 0;
   sg_fd = open(tapedevice, O_RDONLY);
   if (sg_fd == -1) {
-    std::cerr << "Could not open device '" << tapedevice << "': ";
-    readIOError(errno);
+    std::cerr << "Could not open device '" << tapedevice << "': "
+              << strerror(errno) << "\n";
     exit(EXIT_FAILURE);
   }
 
@@ -318,7 +279,6 @@ bool SCSIExecute(std::string tapedrive, unsigned char *cmd_p, int cmd_len,
   sresult = cmdio.status;
   close(sg_fd);
 #elif defined(OS_FREEBSD)
-  errno = 0;
   auto dev = cam_open_device(tapedevice, O_RDWR);
   auto ccb = dev ? cam_getccb(dev) : nullptr;
 
@@ -363,8 +323,9 @@ bool SCSIExecute(std::string tapedrive, unsigned char *cmd_p, int cmd_len,
   bool retval = true;
 
   if (eresult != 0) {
-    if (show_error)
-      readIOError(ioerr);
+    if (show_error) {
+      std::cerr << "ERROR: " << strerror(ioerr) << "\n";
+    }
     retval = false;
   }
 
@@ -376,6 +337,7 @@ bool SCSIExecute(std::string tapedrive, unsigned char *cmd_p, int cmd_len,
   delete sd;
   return retval;
 }
+
 void byteswap(unsigned char *array, int size, int value) {
   switch (size) {
   case 2:
@@ -409,6 +371,7 @@ SSP_NBES::SSP_NBES(const SSP_PAGE_BUFFER *buffer) {
   memcpy(&nbes, buffer, sizeof(SSP_PAGE_NBES));
   loadKADs(buffer, sizeof(SSP_PAGE_NBES));
 }
+
 SSP_DES::SSP_DES(const SSP_PAGE_BUFFER *buffer) {
   memset(&des, 0, sizeof(SSP_PAGE_DES));
   memcpy(&des, buffer, sizeof(SSP_PAGE_DES));
@@ -435,7 +398,8 @@ void KAD_CLASS::loadKADs(const SSP_PAGE_BUFFER *buffer, int start) {
     kads.push_back(kad);
   }
 }
-bool moveTape(std::string tapeDevice, int count, bool dirForward) {
+
+bool moveTape(const std::string& tapeDevice, int count, bool dirForward) {
   struct mtop mt_command;
   int sg_fd = open(tapeDevice.c_str(), O_RDONLY);
   if (!sg_fd || sg_fd == -1) {
@@ -459,32 +423,6 @@ bool moveTape(std::string tapeDevice, int count, bool dirForward) {
   return retval;
 }
 
-void readIOError(int err) {
-  if (err == 0)
-    return;
-  std::cerr << "ERROR: ";
-  switch (err) {
-  case EAGAIN:
-    std::cerr << "Device already open.\n";
-    break;
-  case EBUSY:
-    std::cerr << "Device Busy.\n";
-    break;
-  case ETIMEDOUT:
-    std::cerr << "Device operation timed out\n";
-    break;
-  case EIO:
-    std::cerr << "Device I/O Error.\n";
-    break;
-  case EPERM:
-    std::cerr << "You do not have privileges to do this.  Are you root?\n";
-    break;
-  default:
-    if (errno != 0) {
-      std::cerr << "0x" << std::hex << errno << " " << strerror(errno) << "\n";
-    }
-  }
-}
 void outputSense(SCSI_PAGE_SENSE *sd) {
   std::cerr << std::left << std::setw(25) << "Sense Code: ";
 
@@ -524,8 +462,7 @@ void outputSense(SCSI_PAGE_SENSE *sd) {
             << "0x" << HEX(sd->addSenseCodeQual) << "\n";
 
   if (sd->addSenseLen > 0) {
-    std::cerr << std::left << std::setw(25) << " Additional data:" 
-    		<< "0x";
+    std::cerr << std::left << std::setw(25) << " Additional data: 0x";
 
     for (int i = 0; i < sd->addSenseLen; i++) {
       std::cerr <<  HEX(sd->addSenseData[i]);

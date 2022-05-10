@@ -15,35 +15,10 @@ GNU General Public License for more details.
 
 #ifndef _SCSIENC_H
 #define _SCSIENC_H
+
 #include <bitset>
 #include <string>
 #include <vector>
-#define SSP_KEY_LENGTH 0X20
-#define SSP_DESCRIPTOR_LENGTH 1024
-#define SSP_PAGE_DES_LENGTH 24
-#define SSP_PAGE_NBES_LENGTH 16
-#define SSP_KAD_HEAD_LENGTH 4
-#define SSP_PAGE_ALLOCATION 8192
-#define SSP_UKAD_LENGTH 0x1e
-
-#define KAD_TYPE_UKAD 0x00
-#define KAD_TYPE_AKAD 0x01
-#define KAD_TYPE_NONCE 0x02
-#define KAD_TYPE_META 0x03
-
-#define RDMC_PROTECT 0x03
-#define RDMC_UNPROTECT 0x02
-#define RDMC_DEFAULT 0x00
-
-// outputs hex in a 2 digit pair
-#define HEX(x)                                                                 \
-    std::right << std::setw(2) << std::setfill('0') << std::hex << (int)(x) << std::setfill(' ')
-// macro for a byte swapped short
-#define BSSHORT(x) ((unsigned short)((x[0] << 8) + x[1]))
-// macro for a byte swapped int
-#define BSLONG(x)                                                              \
-  ((unsigned int)((int)(x[0] << 24) + (int)(x[1] << 16) + (int)(x[2] << 8) +   \
-                  (int)(x[3])))
 
 #ifdef HAVE_SYS_MACHINE_H
 #include <sys/machine.h>
@@ -53,7 +28,37 @@ GNU General Public License for more details.
 #include <sys/types.h>
 #endif
 
-#include <vector>
+constexpr size_t SSP_KEY_LENGTH = 0X20;
+constexpr size_t SSP_DESCRIPTOR_LENGTH = 1024;
+constexpr size_t SSP_KAD_HEAD_LENGTH = 4;
+constexpr size_t SSP_PAGE_ALLOCATION = 8192;
+constexpr size_t SSP_UKAD_LENGTH = 0x1e;
+
+constexpr uint8_t KAD_TYPE_UKAD = 0x00;
+constexpr uint8_t KAD_TYPE_AKAD = 0x01;
+constexpr uint8_t KAD_TYPE_NONCE = 0x02;
+constexpr uint8_t KAD_TYPE_META = 0x03;
+
+constexpr uint8_t RDMC_PROTECT = 0x03;
+constexpr uint8_t RDMC_UNPROTECT = 0x02;
+constexpr uint8_t RDMC_DEFAULT = 0x00;
+
+// outputs hex in a 2 digit pair
+#define HEX(x)                                                                 \
+    std::right << std::setw(2) << std::setfill('0') << std::hex << (int)(x) << std::setfill(' ')
+// macro for a byte swapped short
+constexpr uint16_t BSSHORT(const uint8_t *p)
+{
+  return static_cast<uint16_t>(p[0]) << 8 | p[1];
+}
+// macro for a byte swapped int
+constexpr uint32_t BSLONG(const uint8_t *p)
+{
+  return static_cast<uint32_t>(p[0]) << 24 |
+         static_cast<uint32_t>(p[1]) << 16 |
+         static_cast<uint32_t>(p[2]) << 8 |
+         static_cast<uint32_t>(p[3]);
+}
 
 #ifdef BYTE_ORDER
 #define STENC_BYTE_ORDER BYTE_ORDER
@@ -79,7 +84,7 @@ GNU General Public License for more details.
 #define STENC_BIG_ENDIAN 0
 #endif
 
-typedef struct {
+struct SSP_PAGE_DES {
   unsigned char pageCode[2];
   unsigned char length[2];
 
@@ -114,9 +119,9 @@ typedef struct {
   unsigned char ASDKCount[2];
   unsigned char res_bits_4[8];
 
-} SSP_PAGE_DES; // device encryption status page
+}; // device encryption status page
 
-typedef struct {
+struct SSP_KAD{
   unsigned char type;
 #if STENC_BIG_ENDIAN == 1
   unsigned char res_bits_1 : 5;
@@ -128,15 +133,53 @@ typedef struct {
   unsigned char descriptorLength[2];
   unsigned char descriptor[SSP_DESCRIPTOR_LENGTH]; // will actually be the size
                                                    // of descriptorLength
-} SSP_KAD;
+};
 
-typedef struct {
+struct SSP_PAGE_BUFFER {
   unsigned char pageCode[2];
   unsigned char length[2];
   unsigned char buffer[SSP_PAGE_ALLOCATION];
-} SSP_PAGE_BUFFER; // generic ssp page buffer
+}; // generic ssp page buffer
 
-typedef struct {
+struct SSP_PAGE_SDE { // structure for setting data encryption
+  unsigned char pageCode[2];
+  unsigned char length[2];
+
+#if STENC_BIG_ENDIAN == 1
+  unsigned char scope : 3;
+  unsigned char res_bits_1 : 4;
+  unsigned char lock : 1;
+#else
+  unsigned char lock : 1;
+  unsigned char res_bits_1 : 4;
+  unsigned char scope : 3;
+#endif
+
+#if STENC_BIG_ENDIAN == 1
+  unsigned char CEEM : 2;
+  unsigned char RDMC : 2;
+  unsigned char sdk : 1;
+  unsigned char ckod : 1;
+  unsigned char ckorp : 1;
+  unsigned char ckorl : 1;
+#else
+  unsigned char ckorl : 1;
+  unsigned char ckorp : 1;
+  unsigned char ckod : 1;
+  unsigned char sdk : 1;
+  unsigned char RDMC : 2;
+  unsigned char CEEM : 2;
+#endif
+  unsigned char encryptionMode;
+  unsigned char decryptionMode;
+  unsigned char algorithmIndex;
+  unsigned char keyFormat;
+  unsigned char res_bits_2[8];
+  unsigned char keyLength[2];
+  unsigned char keyData[SSP_KEY_LENGTH];
+};
+
+struct SSP_PAGE_NBES {
   unsigned char pageCode[2];
   unsigned char length[2];
   unsigned char log_obj_num[8];
@@ -160,9 +203,9 @@ typedef struct {
 #endif
 
   unsigned char res_bits_2;
-} SSP_PAGE_NBES; // next block encryption status page
+}; // next block encryption status page
 
-typedef struct {
+struct SCSI_PAGE_INQ {
 
 #if STENC_BIG_ENDIAN == 0
   unsigned char peripheralQualifier : 3;
@@ -267,8 +310,9 @@ typedef struct {
   unsigned char versionDescriptor[16];
   unsigned char res_bits_5[22];
   unsigned char copyright[1];
-} SCSI_PAGE_INQ; // device inquiry response
-typedef struct {
+}; // device inquiry response
+
+struct SCSI_PAGE_SENSE {
 #if STENC_BIG_ENDIAN == 1
   unsigned char valid : 1;
   unsigned char responseCode : 7;
@@ -313,7 +357,8 @@ typedef struct {
 #endif
   unsigned char field[2]; // field pointer
   unsigned char addSenseData[109];
-} SCSI_PAGE_SENSE; // sense data response
+}; // sense data response
+
 class KAD_CLASS {
 public:
   std::vector<SSP_KAD> kads;
@@ -351,14 +396,14 @@ public:
 };
 
 // Gets encryption options on the tape drive
-SSP_DES *SSPGetDES(std::string tapeDevice);
+SSP_DES *SSPGetDES(const std::string& tapeDevice);
 // Gets the encryption status from the tape volume
-SSP_NBES *SSPGetNBES(std::string tapeDevice, bool retry);
+SSP_NBES *SSPGetNBES(const std::string& tapeDevice, bool retry);
 // Writes encryption options to the tape drive
 int SCSIInitSDEPage(SCSIEncryptOptions *eOptions,
                     uint8_t *buffer);
-bool SCSIWriteEncryptOptions(std::string tapeDevice,
+bool SCSIWriteEncryptOptions(const std::string& tapeDevice,
                              SCSIEncryptOptions *eOptions);
 // Gets device inquiry
-SCSI_PAGE_INQ *SCSIGetInquiry(std::string tapeDevice);
+SCSI_PAGE_INQ *SCSIGetInquiry(const std::string& tapeDevice);
 #endif

@@ -13,33 +13,35 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-#include "scsiencrypt.h"
+#include <config.h>
 
 #include <charconv>
-#include <config.h>
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
+#include <cstdint>
 #include <fstream>
 #include <iomanip>
 #include <ios>
 #include <iostream>
 #include <optional>
-#include <stdint.h>
 #include <sstream>
 #include <string>
+#include <vector>
+
 #include <syslog.h>
 #include <sys/mtio.h>
 #include <sys/stat.h>
 #include <termios.h>
-#include <vector>
+
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
 #ifdef HAVE_STRING_H
 #include <string.h>
 #endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 
+#include "scsiencrypt.h"
 
 typedef struct {
 #if STENC_BIG_ENDIAN == 0
@@ -63,12 +65,11 @@ typedef struct {
 #endif
 } bitcheck;
 
-using namespace std;
 void showUsage();
-void errorOut(std::string const message);
-void inquiryDrive(std::string tapeDevice);
-void showDriveStatus(std::string tapeDevice, bool detail);
-void showVolumeStatus(std::string tapeDevice);
+void errorOut(const std::string& message);
+void inquiryDrive(const std::string& tapeDevice);
+void showDriveStatus(const std::string& tapeDevice, bool detail);
+void showVolumeStatus(const std::string& tapeDevice);
 void echo(bool);
 
 static std::optional<std::vector<uint8_t>> key_from_hex_chars(const std::string& s)
@@ -79,7 +80,7 @@ static std::optional<std::vector<uint8_t>> key_from_hex_chars(const std::string&
   if (s.size() % 2) {  // treated as if there is an implicit leading 0
     uint8_t result;
     auto [ptr, ec] { std::from_chars(it, it + 1, result, 16) };
-    if (ec != errc {}) {
+    if (ec != std::errc {}) {
       return {};
     }
     bytes.push_back(result);
@@ -89,7 +90,7 @@ static std::optional<std::vector<uint8_t>> key_from_hex_chars(const std::string&
   while (*it) {
     uint8_t result;
     auto [ptr, ec] { std::from_chars(it, it + 2, result, 16) };
-    if (ec != errc {}) {
+    if (ec != std::errc {}) {
       return {};
     }
     bytes.push_back(result);
@@ -98,7 +99,7 @@ static std::optional<std::vector<uint8_t>> key_from_hex_chars(const std::string&
   return bytes;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, const char **argv) {
   bitcheck bc;
   memset(&bc, 0, 1);
   bc.bit2 = 1;
@@ -340,9 +341,9 @@ int main(int argc, char **argv) {
     errorOut("Turning encryption off for '" + tapeDrive + "' failed!");
   }
 }
-// exits to shell with an error message
 
-void errorOut(std::string const message) {
+// exits to shell with an error message
+void errorOut(const std::string& message) {
   std::cerr << "Error: " << message << "\n";
   showUsage();
   exit(EXIT_FAILURE);
@@ -350,13 +351,14 @@ void errorOut(std::string const message) {
 
 // shows the command usage
 void showUsage() {
-  std::cout
+  std::cerr
       << "Usage: stenc --version | "
          "-f <device> [--detail] [-e <on/mixed/rawread/off> [-k <file>] "
          "[-kd <description>] [-a <index>] [--protect | --unprotect] [--ckod] ]\n\n"
          "Type 'man stenc' for more information.\n";
 }
-void inquiryDrive(std::string tapeDevice) {
+
+void inquiryDrive(const std::string& tapeDevice) {
   // todo: std::cout should not be used outside main()
   SCSI_PAGE_INQ *const iresult = SCSIGetInquiry(tapeDevice);
   std::cout << std::left << std::setw(25) << "Device Mfg:";
@@ -372,7 +374,7 @@ void inquiryDrive(std::string tapeDevice) {
   delete iresult;
 }
 
-void showDriveStatus(std::string tapeDrive, bool detail) {
+void showDriveStatus(const std::string& tapeDrive, bool detail) {
   SSP_DES *opt = SSPGetDES(tapeDrive);
   if (opt == NULL)
     return;
@@ -477,7 +479,7 @@ void showDriveStatus(std::string tapeDrive, bool detail) {
   delete opt;
 }
 
-void showVolumeStatus(std::string tapeDrive) {
+void showVolumeStatus(const std::string& tapeDrive) {
   SSP_NBES *opt = SSPGetNBES(tapeDrive, true);
   if (opt == NULL)
     return;
@@ -551,7 +553,7 @@ void showVolumeStatus(std::string tapeDrive) {
   delete opt;
 }
 
-void echo(bool on = true) {
+void echo(bool on) {
   struct termios settings {};
   tcgetattr(STDIN_FILENO, &settings);
   settings.c_lflag =
