@@ -227,9 +227,6 @@ int main(int argc, const char **argv) {
         "'--protect' is not valid when setting encryption mode to 'rawread'");
   }
 
-  if (getuid() != 0) {
-    errorOut("You must be root to read or set encryption options on a drive!");
-  }
   openlog("stenc", LOG_CONS, LOG_USER);
 
   if (action == 0) {

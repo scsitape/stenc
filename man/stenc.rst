@@ -20,7 +20,7 @@ SYNOPSIS
 AVAILABILITY
 ============
 
-Linux
+Linux, FreeBSD
 
 DESCRIPTION
 ===========
@@ -38,7 +38,8 @@ OPTIONS
    rewind (i.e. use */dev/nst0* instead of */dev/st0*, */dev/rmt0.1* instead
    of */dev/rmt0*). Use commands like 'cat /proc/scsi/scsi', 'lsscsi', and
    'lsdev' to determine the proper device to use. On some distros, a
-   */dev/sg* device must be used instead of a */dev/st* device.
+   */dev/sg* device must be used instead of a */dev/st* device. Typically,
+   only the superuser can access tape devices.
 
    If this is the only option specified, the status of the device will be
    displayed. To retrieve more detailed status information, add
