@@ -1,8 +1,15 @@
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
+
 #include "config.h"
 #include "scsiencrypt.h"
 
+#include <arpa/inet.h>
+
+constexpr uint8_t bytes2[] {0x01, 0x02};
+static_assert(BSSHORT(bytes2) == 0x0102u);
+constexpr uint8_t bytes4[] {0x01, 0x02, 0x03, 0x04};
+static_assert(BSLONG(bytes4) == 0x01020304u);
 
 using namespace std::literals::string_literals;
 
@@ -199,6 +206,29 @@ TEST_CASE("Interpret device encryption status page", "[scsi]") {
   REQUIRE(page.kads[0].authenticated == 1);
   REQUIRE(BSSHORT(page.kads[0].descriptorLength) == std::strlen("Hello world!"));
   REQUIRE(memcmp(page.kads[0].descriptor, "Hello world!", BSSHORT(page.kads[0].descriptorLength)) == 0);
+
+  auto& page_des {reinterpret_cast<const scsi::page_des&>(buffer)};
+  REQUIRE(ntohs(page_des.page_code) == 0x20u);
+  REQUIRE(ntohs(page_des.length) == 36u);
+  REQUIRE((page_des.scope & scsi::page_des::scope_it_nexus_mask)
+          >> scsi::page_des::scope_it_nexus_pos == std::byte {2u});
+  REQUIRE((page_des.scope & scsi::page_des::scope_encryption_mask)
+          >> scsi::page_des::scope_encryption_pos == std::byte {2u});
+  REQUIRE(page_des.encryption_mode == scsi::encrypt_mode::on);
+  REQUIRE(page_des.decryption_mode == scsi::decrypt_mode::on);
+  REQUIRE(page_des.algorithm_index == 1u);
+  REQUIRE(ntohl(page_des.key_instance_counter) == 1u);
+  REQUIRE((page_des.flags & scsi::page_des::flags_parameters_control_mask)
+          == std::byte {1u} << scsi::page_des::flags_parameters_control_pos);
+  REQUIRE((page_des.flags & scsi::page_des::flags_vcelb_mask) ==
+          scsi::page_des::flags_vcelb_mask);
+  REQUIRE((page_des.flags & scsi::page_des::flags_ceems_mask) == std::byte {});
+  REQUIRE((page_des.flags & scsi::page_des::flags_rdmd_mask) == std::byte {});
+
+  auto kads = read_page_kads(page_des);
+  REQUIRE(kads.size() == 1u);
+  REQUIRE(ntohs(kads[0]->length) == std::strlen("Hello world!"));
+  REQUIRE(memcmp(kads[0]->descriptor, "Hello world!", ntohs(kads[0]->length)) == 0);
 }
 
 TEST_CASE("Interpret next block encryption status page", "[scsi]") {
@@ -230,4 +260,19 @@ TEST_CASE("Interpret next block encryption status page", "[scsi]") {
   REQUIRE(page.kads[0].authenticated == 1);
   REQUIRE(BSSHORT(page.kads[0].descriptorLength) == std::strlen("Hello world!"));
   REQUIRE(memcmp(page.kads[0].descriptor, "Hello world!", BSSHORT(page.kads[0].descriptorLength)) == 0);
+
+  auto& page_nbes {reinterpret_cast<const scsi::page_nbes&>(buffer)};
+  REQUIRE(ntohs(page_nbes.page_code) == 0x21u);
+  REQUIRE(ntohs(page_nbes.length) == 28u);
+  REQUIRE((page_nbes.status & scsi::page_nbes::status_compression_mask) == std::byte {});
+  REQUIRE((page_nbes.status & scsi::page_nbes::status_encryption_mask)
+          == std::byte {5u} << scsi::page_nbes::status_encryption_pos);
+  REQUIRE(page_nbes.algorithm_index == 1u);
+  REQUIRE((page_nbes.flags & scsi::page_nbes::flags_emes_mask) == std::byte {});
+  REQUIRE((page_nbes.flags & scsi::page_nbes::flags_rdmds_mask) == std::byte {});
+
+  auto kads = read_page_kads(page_nbes);
+  REQUIRE(kads.size() == 1u);
+  REQUIRE(ntohs(kads[0]->length) == std::strlen("Hello world!"));
+  REQUIRE(memcmp(kads[0]->descriptor, "Hello world!", ntohs(kads[0]->length)) == 0);
 }
