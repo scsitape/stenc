@@ -99,6 +99,7 @@ static std::optional<std::vector<uint8_t>> key_from_hex_chars(const std::string&
   return bytes;
 }
 
+#if !defined(CATCH_CONFIG_MAIN)
 int main(int argc, const char **argv) {
   bitcheck bc;
   memset(&bc, 0, 1);
@@ -341,6 +342,7 @@ int main(int argc, const char **argv) {
     errorOut("Turning encryption off for '" + tapeDrive + "' failed!");
   }
 }
+#endif // defined(CATCH_CONFIG_MAIN)
 
 // exits to shell with an error message
 void errorOut(const std::string& message) {
@@ -358,28 +360,30 @@ void showUsage() {
          "Type 'man stenc' for more information.\n";
 }
 
+static void print_device_inquiry(std::ostream& os, const SCSI_PAGE_INQ *iresult)
+{
+  os << std::left << std::setw(25) << "Vendor:";
+  os.write((const char *)iresult->vender, 8);
+  os.put('\n');
+  os << std::left << std::setw(25) << "Product ID:";
+  os.write((const char *)iresult->productID, 16);
+  os.put('\n');
+  os << std::left << std::setw(25) << "Product Revision:";
+  os.write((const char *)iresult->productRev, 4);
+  os.put('\n');
+}
+
 void inquiryDrive(const std::string& tapeDevice) {
   // todo: std::cout should not be used outside main()
   SCSI_PAGE_INQ *const iresult = SCSIGetInquiry(tapeDevice);
-  std::cout << std::left << std::setw(25) << "Device Mfg:";
-  std::cout.write((const char *)iresult->vender, 8);
-  std::cout << std::endl;
-  std::cout << std::left << std::setw(25) << "Product ID:";
-  std::cout.write((const char *)iresult->productID, 16);
-  std::cout << std::endl;
-  std::cout << std::left << std::setw(25) << "Product Revision:";
-  std::cout.write((const char *)iresult->productRev, 4);
-  std::cout << std::endl;
-
+  print_device_inquiry(std::cout, iresult);
   delete iresult;
 }
 
-void showDriveStatus(const std::string& tapeDrive, bool detail) {
-  SSP_DES *opt = SSPGetDES(tapeDrive);
-  if (opt == NULL)
-    return;
+static void print_device_status(std::ostream& os, const SSP_DES *opt, bool detail)
+{
   std::string emode = "unknown";
-  std::cout << std::left << std::setw(25) << "Drive Encryption:";
+  os << std::left << std::setw(25) << "Drive Encryption:";
   if ((int)opt->des.encryptionMode == 0x2 && // encrypt
       (int)opt->des.decryptionMode == 0x2    // read only encrypted data
   )
@@ -399,58 +403,58 @@ void showDriveStatus(const std::string& tapeDrive, bool detail) {
   )
     emode = "off";
 
-  std::cout << emode << "\n";
+  os << emode << "\n";
   if (detail) {
-    std::cout << std::left << std::setw(25) << "Drive Output:";
+    os << std::left << std::setw(25) << "Drive Output:";
     switch ((int)opt->des.decryptionMode) {
     case 0x0:
-      std::cout << "Not decrypting\n";
-      std::cout << std::setw(25) << " "
-                << "Raw encrypted data not outputted\n";
+      os << "Not decrypting\n";
+      os << std::setw(25) << " "
+         << "Raw encrypted data not outputted\n";
       break;
     case 0x1:
-      std::cout << "Not decrypting\n";
-      std::cout << std::setw(25) << " "
-                << "Raw encrypted data outputted\n";
+      os << "Not decrypting\n";
+      os << std::setw(25) << " "
+         << "Raw encrypted data outputted\n";
       break;
     case 0x2:
-      std::cout << "Decrypting\n";
-      std::cout << std::setw(25) << " "
-                << "Unencrypted data not outputted\n";
+      os << "Decrypting\n";
+      os << std::setw(25) << " "
+         << "Unencrypted data not outputted\n";
       break;
     case 0x3:
-      std::cout << "Decrypting\n";
-      std::cout << std::setw(25) << " "
-                << "Unencrypted data outputted\n";
+      os << "Decrypting\n";
+      os << std::setw(25) << " "
+         << "Unencrypted data outputted\n";
       break;
     default:
-      std::cout << "Unknown '0x" << std::hex << (int)opt->des.decryptionMode
-                << "' \n";
+      os << "Unknown '0x" << std::hex << (int)opt->des.decryptionMode
+         << "' \n";
       break;
     }
-    std::cout << std::setw(25) << "Drive Input:";
+    os << std::setw(25) << "Drive Input:";
     switch ((int)opt->des.encryptionMode) {
     case 0x0:
-      std::cout << "Not encrypting\n";
+      os << "Not encrypting\n";
       break;
     case 0x2:
-      std::cout << "Encrypting\n";
+      os << "Encrypting\n";
       break;
     default:
-      std::cout << "Unknown result '0x" << std::hex
+      os << "Unknown result '0x" << std::hex
                 << (int)opt->des.encryptionMode << "'\n";
       break;
     }
     if (opt->des.RDMD == 1) {
-      std::cout << std::setw(25) << " "
-                << "Protecting from raw read\n";
+      os << std::setw(25) << " "
+         << "Protecting from raw read\n";
     }
 
-    std::cout << std::setw(25) << "Key Instance Counter:" << std::dec
+    os << std::setw(25) << "Key Instance Counter:" << std::dec
               << BSLONG(opt->des.keyInstance) << "\n";
     if (opt->des.algorithmIndex != 0) {
-      std::cout << std::setw(25) << "Encryption Algorithm:" << std::hex
-                << (int)opt->des.algorithmIndex << "\n";
+      os << std::setw(25) << "Encryption Algorithm:" << std::hex
+         << (int)opt->des.algorithmIndex << "\n";
     }
   }
   if (opt->kads.size() > 0) {
@@ -460,60 +464,65 @@ void showDriveStatus(const std::string& tapeDrive, bool detail) {
       switch (opt->kads[i].type) {
       case KAD_TYPE_UKAD:
         lbl << "uKAD): ";
-        std::cout << std::setw(25) << lbl.str();
-        std::cout.write((const char *)&opt->kads[i].descriptor,
+        os << std::setw(25) << lbl.str();
+        os.write((const char *)&opt->kads[i].descriptor,
                         BSSHORT(opt->kads[i].descriptorLength));
-        std::cout << std::endl;
+        os.put('\n');
         break;
       case KAD_TYPE_AKAD:
         lbl << "aKAD): ";
-        std::cout << std::setw(25) << lbl.str();
-        std::cout.write((const char *)&opt->kads[i].descriptor,
+        os << std::setw(25) << lbl.str();
+        os.write((const char *)&opt->kads[i].descriptor,
                         BSSHORT(opt->kads[i].descriptorLength));
-        std::cout << std::endl;
+        os.put('\n');
         break;
       }
     }
   }
+}
 
+void showDriveStatus(const std::string& tapeDrive, bool detail) {
+  SSP_DES *opt = SSPGetDES(tapeDrive);
+  if (opt == NULL)
+    return;
+
+  print_device_status(std::cout, opt, detail);
   delete opt;
 }
 
-void showVolumeStatus(const std::string& tapeDrive) {
-  SSP_NBES *opt = SSPGetNBES(tapeDrive, true);
-  if (opt == NULL)
-    return;
+static void print_volume_status(std::ostream& os, const SSP_NBES *opt)
+{
   if (opt->nbes.compressionStatus != 0) {
-    std::cout << std::left << std::setw(25) << "Volume Compressed:";
+    os << std::left << std::setw(25) << "Volume Compressed:";
     switch (opt->nbes.compressionStatus) {
     case 0x00:
-      std::cout << "Drive cannot determine\n";
+      os << "Drive cannot determine\n";
       break;
     default:
-      std::cout << "Unknown result '" << std::hex
-                << (int)opt->nbes.compressionStatus << "'\n";
+      os << "Unknown result '" << std::hex
+         << (int)opt->nbes.compressionStatus << "'\n";
       break;
     }
   }
-  std::cout << std::left << std::setw(25) << "Volume Encryption:";
+  os << std::left << std::setw(25) << "Volume Encryption:";
   switch ((int)opt->nbes.encryptionStatus) {
   case 0x01:
-    std::cout << "Unable to determine\n";
+    os << "Unable to determine\n";
     break;
   case 0x02:
-    std::cout << "Logical block is not a logical block\n";
+    os << "Logical block is not a logical block\n";
     break;
   case 0x03:
-    std::cout << "Not encrypted\n";
+    os << "Not encrypted\n";
     break;
   case 0x05:
-    std::cout << "Encrypted and able to decrypt\n";
+    os << "Encrypted and able to decrypt\n";
     if (opt->nbes.RDMDS == 1)
-      std::cout << std::left << std::setw(25)
-                << " Protected from raw read\n";
+      os << std::left << std::setw(25)
+         << " Protected from raw read\n";
     break;
   case 0x06:
-    std::cout << "Encrypted, but unable to decrypt due to invalid key.\n";
+    os << "Encrypted, but unable to decrypt due to invalid key.\n";
     if (opt->kads.size() > 0) {
       for (unsigned int i = 0; i < opt->kads.size(); i++) {
         std::stringstream lbl;
@@ -521,35 +530,42 @@ void showVolumeStatus(const std::string& tapeDrive) {
         switch (opt->kads[i].type) {
         case KAD_TYPE_UKAD:
           lbl << "uKAD): ";
-          std::cout << std::setw(25) << lbl.str();
-          std::cout.write((const char *)&opt->kads[i].descriptor,
+          os << std::setw(25) << lbl.str();
+          os.write((const char *)&opt->kads[i].descriptor,
                           BSSHORT(opt->kads[i].descriptorLength));
-          std::cout << std::endl;
+          os.put('\n');
           break;
         case KAD_TYPE_AKAD:
           lbl << "aKAD): ";
-          std::cout << std::setw(25) << lbl.str();
-          std::cout.write((const char *)&opt->kads[i].descriptor,
+          os << std::setw(25) << lbl.str();
+          os.write((const char *)&opt->kads[i].descriptor,
                           BSSHORT(opt->kads[i].descriptorLength));
-          std::cout << std::endl;
+          os.put('\n');
           break;
         }
       }
     }
     if (opt->nbes.RDMDS == 1)
-      std::cout << std::left << std::setw(25) << " Protected from raw read\n";
+      os << std::left << std::setw(25) << " Protected from raw read\n";
     break;
 
   default:
-    std::cout << "Unknown result '" << std::hex
-              << (int)opt->nbes.encryptionStatus << "'\n";
+    os << "Unknown result '" << std::hex
+       << (int)opt->nbes.encryptionStatus << "'\n";
     break;
   }
   if (opt->nbes.algorithmIndex != 0) {
-    std::cout << std::left << std::setw(25)
-              << "Volume Algorithm:" << (int)opt->nbes.algorithmIndex << "\n";
+    os << std::left << std::setw(25)
+       << "Volume Algorithm:" << (int)opt->nbes.algorithmIndex << "\n";
   }
+}
 
+void showVolumeStatus(const std::string& tapeDrive) {
+  SSP_NBES *opt = SSPGetNBES(tapeDrive, true);
+  if (opt == NULL)
+    return;
+
+  print_volume_status(std::cout, opt);
   delete opt;
 }
 
