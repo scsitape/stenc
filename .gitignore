@@ -31,6 +31,10 @@
 *.app
 src/stenc
 tests/scsi
+tests/output
+
+# Other outputs
+man/stenc.1
 
 # dist outputs
 *.tar.gz
