@@ -81,3 +81,7 @@ Further reading
 IBM Tape Library Guide for Open Systems
 ISBN-13: 9780738458342
 http://www.redbooks.ibm.com/abstracts/sg245946.html?Open
+
+
+SCSI-Programming-HOWTO
+https://tldp.org/HOWTO/archived/SCSI-Programming-HOWTO/SCSI-Programming-HOWTO-9.html 
