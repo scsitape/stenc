@@ -43,28 +43,6 @@ GNU General Public License for more details.
 
 #include "scsiencrypt.h"
 
-typedef struct {
-#if STENC_BIG_ENDIAN == 0
-  unsigned char bit1 : 1;
-  unsigned char bit2 : 1;
-  unsigned char bit3 : 1;
-  unsigned char bit4 : 1;
-  unsigned char bit5 : 1;
-  unsigned char bit6 : 1;
-  unsigned char bit7 : 1;
-  unsigned char bit8 : 1;
-#else
-  unsigned char bit8 : 1;
-  unsigned char bit7 : 1;
-  unsigned char bit6 : 1;
-  unsigned char bit5 : 1;
-  unsigned char bit4 : 1;
-  unsigned char bit3 : 1;
-  unsigned char bit2 : 1;
-  unsigned char bit1 : 1;
-#endif
-} bitcheck;
-
 void showUsage();
 void errorOut(const std::string& message);
 void inquiryDrive(const std::string& tapeDevice);
@@ -101,39 +79,10 @@ static std::optional<std::vector<uint8_t>> key_from_hex_chars(const std::string&
 
 #if !defined(CATCH_CONFIG_MAIN)
 int main(int argc, const char **argv) {
-  bitcheck bc;
-  memset(&bc, 0, 1);
-  bc.bit2 = 1;
-  bc.bit5 = 1;
-  unsigned char check;
-  memcpy(&check, &bc, 1);
-
-  switch ((int)check) {
-  case 0x12:
-    // this is good
-    break;
-  case 0x48:
-#if STENC_BIG_ENDIAN == 1
-    errorOut("Swapped bit ordering detected(BI).  Program needs to be "
-             "configured without the --enable-swapendian option in order to "
-             "function properly on your system");
-#else
-    errorOut("Swapped bit ordering detected(LI).  Program needs to be "
-             "configured with the --enable-swapendian option in order to "
-             "function properly on your system");
-#endif
-    break;
-  default:
-    std::cerr << "Unknown bit check result " << std::hex << check << "\n";
-    errorOut("Exiting program because it will not run properly");
-    break;
-  }
-
   std::string tapeDrive;
   int action = 0; // 0 = status, 1 =setting param, 2 = generating key
   std::string keyFile, keyDesc;
   bool detail = false;
-  SCSIEncryptOptions drvOptions;
 
   scsi::encrypt_mode enc_mode;
   scsi::decrypt_mode dec_mode;
