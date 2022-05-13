@@ -49,18 +49,38 @@ GNU General Public License for more details.
 
 #include "scsiencrypt.h"
 
-constexpr uint8_t SSP_SPIN_OPCODE = 0xa2;
-constexpr uint8_t SSP_SPOUT_OPCODE = 0xb5;
-constexpr uint8_t SSP_SP_CMD_LEN = 12;
-constexpr uint8_t SSP_SP_PROTOCOL_TDE = 0x20;
+constexpr std::uint8_t SSP_SPIN_OPCODE = 0xa2;
+constexpr std::uint8_t SSP_SPOUT_OPCODE = 0xb5;
+constexpr std::uint8_t SSP_SP_CMD_LEN = 12;
+constexpr std::uint8_t SSP_SP_PROTOCOL_TDE = 0x20;
 
 constexpr int RETRYCOUNT = 1;
 
 #define BSINTTOCHAR(x) \
-  static_cast<uint8_t>((x) >> 24), \
-  static_cast<uint8_t>((x) >> 16), \
-  static_cast<uint8_t>((x) >> 8), \
-  static_cast<uint8_t>((x))
+  static_cast<std::uint8_t>((x) >> 24), \
+  static_cast<std::uint8_t>((x) >> 16), \
+  static_cast<std::uint8_t>((x) >> 8), \
+  static_cast<std::uint8_t>((x))
+
+// generic_deleter permits the use of std::unique_ptr for RAII on non-pointer
+// types like file descriptors.
+template<typename T, T null_value, typename Deleter, Deleter d>
+struct generic_deleter {
+  class pointer {
+    T t;
+  public:
+    pointer() : t {null_value} {}
+    pointer(T t) : t {t} {}
+    pointer(std::nullptr_t) : t {null_value} {}
+    explicit operator bool() const noexcept { return t != null_value; }
+    friend bool operator ==(pointer lhs, pointer rhs) noexcept { return lhs.t == rhs.t; }
+    friend bool operator !=(pointer lhs, pointer rhs) noexcept { return !(lhs == rhs); }
+    operator T() const noexcept { return t; }
+  };
+
+  void operator()(pointer p) const noexcept { d(p); }
+};
+using unique_fd = std::unique_ptr<int, generic_deleter<int, -1, decltype(&close), &close>>;
 
 void byteswap(unsigned char *array, int size, int value);
 bool moveTape(const std::string& tapeDevice, int count, bool dirForward);
@@ -68,6 +88,74 @@ void outputSense(SCSI_PAGE_SENSE *sd);
 bool SCSIExecute(const std::string& tapedevice, unsigned char *cmd_p, int cmd_len,
                  unsigned char *dxfer_p, int dxfer_len, bool cmd_to_device,
                  bool show_error);
+
+enum class scsi_direction { to_device, from_device };
+
+static void scsi_execute(const std::string& device, const std::uint8_t *cmd_p,
+                         std::size_t cmd_len, const std::uint8_t *dxfer_p,
+                         std::size_t dxfer_len, scsi_direction direction)
+{
+#if defined(OS_LINUX)
+  unique_fd fd {open(device.c_str(), O_RDONLY)};
+  if (!fd) {
+    std::ostringstream oss;
+    oss << "Cannot open device " << device;
+    throw std::system_error {errno, std::generic_category(), oss.str()};
+  }
+
+  sg_io_hdr cmdio {};
+  auto sense_buf {std::make_unique<scsi::sense_buffer>()};
+
+  cmdio.cmd_len = cmd_len;
+  cmdio.dxfer_direction = (direction == scsi_direction::to_device)
+                          ? SG_DXFER_TO_DEV : SG_DXFER_FROM_DEV;
+  cmdio.dxfer_len = dxfer_len;
+  cmdio.dxferp = const_cast<unsigned char*>(dxfer_p);
+  cmdio.cmdp = const_cast<unsigned char*>(cmd_p);
+  cmdio.sbp = sense_buf->data();
+  cmdio.mx_sb_len = sizeof(decltype(sense_buf)::element_type);
+  cmdio.timeout = SCSI_TIMEOUT;
+  cmdio.interface_id = 'S';
+
+  if (ioctl(fd.get(), SG_IO, &cmdio)) {
+    throw std::system_error {errno, std::generic_category()};
+  }
+  if (cmdio.status) {
+    throw scsi::scsi_error {std::move(sense_buf)};
+  }
+#elif defined(OS_FREEBSD)
+  auto dev = std::unique_ptr<struct cam_device, decltype(&cam_close_device)>
+    {cam_open_device(device.c_str(), O_RDWR), &cam_close_device};
+  if (dev == nullptr) {
+    std::ostringstream oss;
+    oss << "Cannot open device " << device << ": " << cam_errbuf;
+    throw std::runtime_error {oss.str()};
+  }
+  auto ccb = std::unique_ptr<union ccb, decltype(&cam_freeccb)>
+    {cam_getccb(dev.get()), &cam_freeccb};
+  if (ccb == nullptr) {
+    throw std::bad_alloc {};
+  }
+  CCB_CLEAR_ALL_EXCEPT_HDR(&ccb->csio);
+
+  cam_fill_csio(&ccb->csio, RETRYCOUNT, nullptr,
+                CAM_PASS_ERR_RECOVER | CAM_CDB_POINTER |
+                  (direction == scsi_direction::to_device ? CAM_DIR_OUT : CAM_DIR_IN),
+                MSG_SIMPLE_Q_TAG, const_cast<u_int8_t*>(dxfer_p),
+                dxfer_len, SSD_FULL_SIZE, cmd_len, SCSI_TIMEOUT);
+  ccb->csio.cdb_io.cdb_ptr = const_cast<u_int8_t*>(cmd_p);
+  if (cam_send_ccb(dev.get(), ccb.get())) {
+    throw std::system_error {errno, std::generic_category()};
+  }
+  if (ccb->csio.scsi_status) {
+    auto sense_buf {std::make_unique<scsi::sense_buffer>()};
+    std::memcpy(sense_buf->data(), &ccb->csio.sense_data, sizeof(scsi::sense_buffer));
+    throw scsi::scsi_error {std::move(sense_buf)};
+  }
+#else
+#error "OS type is not set"
+#endif
+}
 
 // Gets encryption options on the tape drive
 SSP_DES *SSPGetDES(const std::string& tapeDevice) {
@@ -462,7 +550,7 @@ void outputSense(SCSI_PAGE_SENSE *sd) {
             << "0x" << HEX(sd->addSenseCodeQual) << "\n";
 
   if (sd->addSenseLen > 0) {
-    std::cerr << std::left << std::setw(25) << " Additional data: 0x";
+    std::cerr << std::left << std::setw(25) << " Additional data: " << "0x";
 
     for (int i = 0; i < sd->addSenseLen; i++) {
       std::cerr <<  HEX(sd->addSenseData[i]);
