@@ -223,6 +223,63 @@ inquiry_data get_inquiry(const std::string& device)
   return inq;
 }
 
+std::unique_ptr<const std::uint8_t[]> make_sde(encrypt_mode enc_mode,
+                                               decrypt_mode dec_mode,
+                                               std::uint8_t algorithm_index,
+                                               const std::vector<std::uint8_t> key,
+                                               const std::string& key_name,
+                                               sde_rdmc rdmc, bool ckod)
+{
+  std::size_t length {sizeof(page_sde) + key.size()};
+  if (!key_name.empty()) {
+    length += sizeof(kad) + key_name.size();
+  }
+  auto buffer {std::make_unique<std::uint8_t[]>(length)};
+  auto& page {reinterpret_cast<page_sde&>(*buffer.get())};
+
+  page.page_code = htons(0x10);
+  page.length = htons(length - sizeof(page_header));
+  page.control = std::byte {2u} << page_sde::control_scope_pos; // all IT nexus = 10b
+  page.flags |= std::byte {DEFAULT_CEEM} << page_sde::flags_ceem_pos;
+  page.flags |= std::byte {rdmc};
+  if (ckod) {
+    page.flags |= page_sde::flags_ckod_mask;
+  }
+  page.encryption_mode = enc_mode;
+  page.decryption_mode = dec_mode;
+  page.algorithm_index = algorithm_index;
+  page.key_length = htons(key.size());
+  std::memcpy(page.key, key.data(), key.size());
+
+  if (!key_name.empty()) {
+    auto &ukad {reinterpret_cast<kad&>(*(buffer.get() + sizeof(page_sde) + key.size()))};
+    ukad.length = htons(key_name.size());
+    std::memcpy(ukad.descriptor, key_name.data(), key_name.size());
+  }
+
+  return buffer;
+}
+
+void write_sde(const std::string& device, const std::uint8_t *sde_buffer)
+{
+  auto& page {reinterpret_cast<const page_sde&>(*sde_buffer)};
+  std::size_t length {sizeof(page_header) + ntohs(page.length)};
+  const uint8_t spout_sde_command[] {
+    SSP_SPOUT_OPCODE,
+    SSP_SP_PROTOCOL_TDE,
+    0,
+    0X10,
+    0,
+    0,
+    BSINTTOCHAR(length),
+    0,
+    0
+  };
+
+  scsi_execute(device, spout_sde_command, sizeof(spout_sde_command),
+               sde_buffer, length, scsi_direction::to_device);
+}
+
 void print_sense_data(std::ostream& os, const sense_data& sd) {
   os << std::left << std::setw(25) << "Sense Code: ";
 

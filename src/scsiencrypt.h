@@ -373,6 +373,17 @@ void get_nbes(const std::string& device, const std::uint8_t *buffer,
 // Get device encryption capabilities
 void get_dec(const std::string& device, const std::uint8_t *buffer,
              std::size_t length);
+// Fill out a set data encryption page with parameters.
+// Result is allocated and returned as a std::unique_ptr and should
+// be sent to the device using scsi::write_sde
+std::unique_ptr<const std::uint8_t[]> make_sde(encrypt_mode enc_mode,
+                                               decrypt_mode dec_mode,
+                                               std::uint8_t algorithm_index,
+                                               const std::vector<std::uint8_t> key,
+                                               const std::string& key_name,
+                                               sde_rdmc rdmc, bool ckod);
+// Write set data encryption parameters to device
+void write_sde(const std::string& device, const std::uint8_t *sde_buffer);
 void print_sense_data(std::ostream& os, const sense_data& sd);
 }
 

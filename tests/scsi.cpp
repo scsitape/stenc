@@ -117,6 +117,13 @@ TEST_CASE("Enable encryption command with options", "[scsi]") {
   int pagelen = SCSIInitSDEPage(&opt, buffer);
   REQUIRE(pagelen == sizeof(expected));
   REQUIRE(memcmp(buffer, expected, sizeof(expected)) == 0);
+
+  auto page_buffer {scsi::make_sde(scsi::encrypt_mode::on, scsi::decrypt_mode::on,
+                                   1u, opt.cryptoKey, opt.keyName, scsi::sde_rdmc::enabled,
+                                   true)};
+  auto& page {reinterpret_cast<const scsi::page_sde&>(*page_buffer.get())};
+  REQUIRE(sizeof(scsi::page_header) + ntohs(page.length) == sizeof(expected));
+  REQUIRE(memcmp(&page, expected, sizeof(expected)) == 0);
 }
 
 TEST_CASE("Enable encryption command with key name", "[scsi]") {
@@ -157,6 +164,14 @@ TEST_CASE("Enable encryption command with key name", "[scsi]") {
   int pagelen = SCSIInitSDEPage(&opt, buffer);
   REQUIRE(pagelen == sizeof(expected));
   REQUIRE(memcmp(buffer, expected, sizeof(expected)) == 0);
+
+  auto page_buffer {scsi::make_sde(scsi::encrypt_mode::on, scsi::decrypt_mode::on,
+                                   1u, opt.cryptoKey, opt.keyName,
+                                   scsi::sde_rdmc::algorithm_default,
+                                   false)};
+  auto& page {reinterpret_cast<const scsi::page_sde&>(*page_buffer.get())};
+  REQUIRE(sizeof(scsi::page_header) + ntohs(page.length) == sizeof(expected));
+  REQUIRE(memcmp(&page, expected, sizeof(expected)) == 0);
 }
 
 /**
