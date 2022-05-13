@@ -16,6 +16,7 @@ GNU General Public License for more details.
 
 #include <bitset>
 #include <cerrno>
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -155,6 +156,133 @@ static void scsi_execute(const std::string& device, const std::uint8_t *cmd_p,
 #else
 #error "OS type is not set"
 #endif
+}
+
+namespace scsi {
+
+void get_des(const std::string& device, const std::uint8_t *buffer,
+             std::size_t length)
+{
+  const std::uint8_t spin_des_command[] {
+    SSP_SPIN_OPCODE,
+    SSP_SP_PROTOCOL_TDE,
+    0,
+    0X20,
+    0,
+    0,
+    BSINTTOCHAR(length),
+    0,
+    0,
+  };
+  scsi_execute(device, spin_des_command, sizeof(spin_des_command),
+               buffer, length, scsi_direction::from_device);
+}
+
+void get_nbes(const std::string& device, const std::uint8_t *buffer,
+              std::size_t length)
+{
+  const std::uint8_t spin_nbes_command[] {
+    SSP_SPIN_OPCODE,
+    SSP_SP_PROTOCOL_TDE,
+    0,
+    0X21,
+    0,
+    0,
+    BSINTTOCHAR(length),
+    0,
+    0,
+  };
+  scsi_execute(device, spin_nbes_command, sizeof(spin_nbes_command),
+               buffer, length, scsi_direction::from_device);
+}
+
+void get_dec(const std::string& device, const std::uint8_t *buffer,
+             std::size_t length)
+{
+  const uint8_t spin_dec_command[] {
+    SSP_SPIN_OPCODE,
+    SSP_SP_PROTOCOL_TDE,
+    0x00, 0x10,
+    0,
+    0,
+    BSINTTOCHAR(length),
+    0,
+    0,
+  };
+  scsi_execute(device, spin_dec_command, sizeof(spin_dec_command),
+               buffer, length, scsi_direction::from_device);
+}
+
+inquiry_data get_inquiry(const std::string& device)
+{
+  const uint8_t scsi_inq_command[] {0x12, 0, 0, 0, sizeof(inquiry_data), 0};
+  inquiry_data inq;
+  scsi_execute(device, scsi_inq_command, sizeof(scsi_inq_command),
+               reinterpret_cast<const std::uint8_t*>(&inq), sizeof(inq),
+               scsi_direction::from_device);
+  return inq;
+}
+
+void print_sense_data(std::ostream& os, const sense_data& sd) {
+  os << std::left << std::setw(25) << "Sense Code: ";
+
+  auto sense_key {static_cast<unsigned int>(sd.flags & sense_data::flags_sense_key_mask)};
+
+  switch (sense_key) {
+  case 0u:
+    os << "No specific error";
+    break;
+  case 2u:
+    os << "Device not ready";
+    break;
+  case 3u:
+    os << "Medium Error";
+    break;
+  case 4u:
+    os << "Hardware Error";
+    break;
+  case 5u:
+    os << "Illegal Request";
+    break;
+  case 6u:
+    os << "Unit Attention";
+    break;
+  case 7u:
+    os << "Data protect";
+    break;
+  case 8u:
+    os << "Blank tape";
+    break;
+  }
+
+  os << " (0x" << HEX(sense_key) << ")\n";
+
+  os << std::left << std::setw(25) << " ASC:"
+     << "0x" << HEX(sd.additional_sense_code) << "\n";
+
+  os << std::left << std::setw(25) << " ASCQ:"
+     << "0x" << HEX(sd.additional_sense_qualifier) << "\n";
+
+  if (sd.additional_sense_length > 0) {
+    os << std::left << std::setw(25) << " Additional data: " << "0x";
+
+    for (int i = 0; i < sd.additional_sense_length; i++) {
+      os <<  HEX(sd.additional_sense_bytes[i]);
+    }
+    os << "\n";
+  }
+#ifdef DEBUGSCSI
+  os << std::left << std::setw(25) << " Raw Sense:"
+     << "0x";
+  char *rawsense = (char *)&sd;
+
+  for (int i = 0; i < sense_data::maximum_size; i++) {
+    os << HEX(rawsense[i]);
+  }
+  os << "\n";
+#endif
+}
+
 }
 
 // Gets encryption options on the tape drive

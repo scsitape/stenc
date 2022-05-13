@@ -38,7 +38,7 @@ Vendor:                  ACME    \n\
 Product ID:              Ultrium-1000    \n\
 Product Revision:        1234\n"s};
   std::ostringstream oss;
-  print_device_inquiry(oss, reinterpret_cast<const SCSI_PAGE_INQ*>(response));
+  print_device_inquiry(oss, reinterpret_cast<const scsi::inquiry_data&>(response));
   REQUIRE(oss.str() == expected_output);
 }
 
@@ -56,7 +56,7 @@ Drive Output:            Not decrypting\n\
 Drive Input:             Not encrypting\n\
 Key Instance Counter:    0\n"s};
   std::ostringstream oss;
-  print_device_status(oss, std::make_unique<SSP_DES>(reinterpret_cast<const SSP_PAGE_BUFFER*>(page)).get(), true);
+  print_device_status(oss, reinterpret_cast<const scsi::page_des&>(page), true);
   REQUIRE(oss.str() == expected_output);
 }
 
@@ -78,7 +78,7 @@ Key Instance Counter:    1\n\
 Encryption Algorithm:    1\n\
 Drive Key Desc.(uKAD):   Hello world!\n"s};
   std::ostringstream oss;
-  print_device_status(oss, std::make_unique<SSP_DES>(reinterpret_cast<const SSP_PAGE_BUFFER*>(page)).get(), true);
+  print_device_status(oss, reinterpret_cast<const scsi::page_des&>(page), true);
   REQUIRE(oss.str() == expected_output);
 }
 
@@ -91,7 +91,7 @@ TEST_CASE("Test SCSI get next block encryption status output 1", "[output]")
   const std::string expected_output {"\
 Volume Encryption:       Not encrypted\n"s};
   std::ostringstream oss;
-  print_volume_status(oss, std::make_unique<SSP_NBES>(reinterpret_cast<const SSP_PAGE_BUFFER*>(page)).get());
+  print_volume_status(oss, reinterpret_cast<const scsi::page_nbes&>(page));
   REQUIRE(oss.str() == expected_output);
 }
 
@@ -107,6 +107,6 @@ TEST_CASE("Test SCSI get next block encryption status output 2", "[output]")
 Volume Encryption:       Encrypted and able to decrypt\n\
 Volume Algorithm:        1\n"s};
   std::ostringstream oss;
-  print_volume_status(oss, std::make_unique<SSP_NBES>(reinterpret_cast<const SSP_PAGE_BUFFER*>(page)).get());
+  print_volume_status(oss, reinterpret_cast<const scsi::page_nbes&>(page));
   REQUIRE(oss.str() == expected_output);
 }

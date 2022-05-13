@@ -363,6 +363,17 @@ std::vector<const kad *> read_page_kads(const Page& page)
   return v;
 }
 
+inquiry_data get_inquiry(const std::string& device);
+// Get data encryption status page
+void get_des(const std::string& device, const std::uint8_t *buffer,
+             std::size_t length);
+// Get next block encryption status page
+void get_nbes(const std::string& device, const std::uint8_t *buffer,
+              std::size_t length);
+// Get device encryption capabilities
+void get_dec(const std::string& device, const std::uint8_t *buffer,
+             std::size_t length);
+void print_sense_data(std::ostream& os, const sense_data& sd);
 }
 
 
