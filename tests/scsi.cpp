@@ -1,8 +1,10 @@
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
+
 #include "config.h"
 #include "scsiencrypt.h"
 
+#include <arpa/inet.h>
 
 using namespace std::literals::string_literals;
 
@@ -14,11 +16,10 @@ using namespace std::literals::string_literals;
  * reflect available input and program options.
  */
 TEST_CASE("Disable encryption command", "[scsi]") {
-  SCSIEncryptOptions opt;
   uint8_t buffer[1024] {};
   const uint8_t expected[] {
     0x00, 0x10, // page code
-    0x00, 0x30, // page length
+    0x00, 0x10, // page length
     0x40, // scope
     DEFAULT_CEEM << 6, // CEEM, CKOD, RDMC, et al.
     0x00, // encyption mode
@@ -26,23 +27,21 @@ TEST_CASE("Disable encryption command", "[scsi]") {
     0x01, // algorithm index
     0x00, // key format
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved [8]
-    0x00, 0x20, // key length
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    0x00, 0x00 // key length
   };
 
-  opt.cryptMode = CRYPTMODE_OFF;
-  opt.algorithmIndex = 1;
-  int pagelen = SCSIInitSDEPage(&opt, buffer);
-  REQUIRE(pagelen == sizeof(expected));
-  REQUIRE(memcmp(buffer, expected, sizeof(expected)) == 0);
+  std::vector<std::uint8_t> key {};
+  std::string key_name {};
+
+  auto page_buffer {scsi::make_sde(scsi::encrypt_mode::off, scsi::decrypt_mode::off,
+                                   1u, key, key_name, scsi::sde_rdmc::algorithm_default,
+                                   false)};
+  auto& page {reinterpret_cast<const scsi::page_sde&>(*page_buffer.get())};
+  REQUIRE(sizeof(scsi::page_header) + ntohs(page.length) == sizeof(expected));
+  REQUIRE(memcmp(&page, expected, sizeof(expected)) == 0);
 }
 
 TEST_CASE("Enable encryption command", "[scsi]") {
-  SCSIEncryptOptions opt;
-  uint8_t buffer[1024] {};
   const uint8_t expected[] {
     0x00, 0x10, // page code
     0x00, 0x30, // page length
@@ -60,24 +59,23 @@ TEST_CASE("Enable encryption command", "[scsi]") {
     0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
   };
 
-  opt.cryptMode = CRYPTMODE_ON;
-  opt.algorithmIndex = 1;
-  opt.cryptoKey = {
+  std::vector<std::uint8_t> key {
     0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
     0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
     0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
     0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
   };
-  opt.keyName = ""s;
+  std::string key_name {};
 
-  int pagelen = SCSIInitSDEPage(&opt, buffer);
-  REQUIRE(pagelen == sizeof(expected));
-  REQUIRE(memcmp(buffer, expected, sizeof(expected)) == 0);
+  auto page_buffer {scsi::make_sde(scsi::encrypt_mode::on, scsi::decrypt_mode::on,
+                                   1u, key, key_name, scsi::sde_rdmc::algorithm_default,
+                                   false)};
+  auto& page {reinterpret_cast<const scsi::page_sde&>(*page_buffer.get())};
+  REQUIRE(sizeof(scsi::page_header) + ntohs(page.length) == sizeof(expected));
+  REQUIRE(memcmp(&page, expected, sizeof(expected)) == 0);
 }
 
 TEST_CASE("Enable encryption command with options", "[scsi]") {
-  SCSIEncryptOptions opt;
-  uint8_t buffer[1024] {};
   const uint8_t expected[] {
     0x00, 0x10, // page code
     0x00, 0x30, // page length
@@ -95,26 +93,23 @@ TEST_CASE("Enable encryption command with options", "[scsi]") {
     0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
   };
 
-  opt.rdmc = 2;
-  opt.CKOD = true;
-  opt.cryptMode = CRYPTMODE_ON;
-  opt.algorithmIndex = 1;
-  opt.cryptoKey = {
+  std::vector<std::uint8_t> key {
     0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
     0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
     0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
     0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
   };
-  opt.keyName = ""s;
+  std::string key_name {};
 
-  int pagelen = SCSIInitSDEPage(&opt, buffer);
-  REQUIRE(pagelen == sizeof(expected));
-  REQUIRE(memcmp(buffer, expected, sizeof(expected)) == 0);
+  auto page_buffer {scsi::make_sde(scsi::encrypt_mode::on, scsi::decrypt_mode::on,
+                                   1u, key, key_name, scsi::sde_rdmc::enabled,
+                                   true)};
+  auto& page {reinterpret_cast<const scsi::page_sde&>(*page_buffer.get())};
+  REQUIRE(sizeof(scsi::page_header) + ntohs(page.length) == sizeof(expected));
+  REQUIRE(memcmp(&page, expected, sizeof(expected)) == 0);
 }
 
 TEST_CASE("Enable encryption command with key name", "[scsi]") {
-  SCSIEncryptOptions opt;
-  uint8_t buffer[1024] {};
   const uint8_t expected[] {
     0x00, 0x10, // page code
     0x00, 0x40, // page length
@@ -137,19 +132,21 @@ TEST_CASE("Enable encryption command with key name", "[scsi]") {
     0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, 0x21,
   };
 
-  opt.cryptMode = CRYPTMODE_ON;
-  opt.algorithmIndex = 1;
-  opt.cryptoKey = {
+  std::vector<std::uint8_t> key {
     0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
     0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
     0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
     0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
   };
-  opt.keyName = "Hello world!"s;
+  std::string key_name {"Hello world!"s};
 
-  int pagelen = SCSIInitSDEPage(&opt, buffer);
-  REQUIRE(pagelen == sizeof(expected));
-  REQUIRE(memcmp(buffer, expected, sizeof(expected)) == 0);
+  auto page_buffer {scsi::make_sde(scsi::encrypt_mode::on, scsi::decrypt_mode::on,
+                                   1u, key, key_name,
+                                   scsi::sde_rdmc::algorithm_default,
+                                   false)};
+  auto& page {reinterpret_cast<const scsi::page_sde&>(*page_buffer.get())};
+  REQUIRE(sizeof(scsi::page_header) + ntohs(page.length) == sizeof(expected));
+  REQUIRE(memcmp(&page, expected, sizeof(expected)) == 0);
 }
 
 /**
@@ -181,24 +178,28 @@ TEST_CASE("Interpret device encryption status page", "[scsi]") {
     0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, 0x21,
   };
 
-  SSP_DES page(reinterpret_cast<const SSP_PAGE_BUFFER*>(buffer));
-  REQUIRE(BSSHORT(page.des.pageCode) == 0x20);
-  REQUIRE(BSSHORT(page.des.length) == 0x24);
-  REQUIRE(page.des.nexusScope == 2);
-  REQUIRE(page.des.keyScope == 2);
-  REQUIRE(page.des.encryptionMode == 2);
-  REQUIRE(page.des.decryptionMode == 2);
-  REQUIRE(page.des.algorithmIndex == 1);
-  REQUIRE(BSLONG(page.des.keyInstance) == 1);
-  REQUIRE(page.des.parametersControl == 1);
-  REQUIRE(page.des.VCELB == 1);
-  REQUIRE(page.des.CEEMS == 0);
-  REQUIRE(page.des.RDMD == 0);
+  auto& page_des {reinterpret_cast<const scsi::page_des&>(buffer)};
+  REQUIRE(ntohs(page_des.page_code) == 0x20u);
+  REQUIRE(ntohs(page_des.length) == 36u);
+  REQUIRE((page_des.scope & scsi::page_des::scope_it_nexus_mask)
+          >> scsi::page_des::scope_it_nexus_pos == std::byte {2u});
+  REQUIRE((page_des.scope & scsi::page_des::scope_encryption_mask)
+          >> scsi::page_des::scope_encryption_pos == std::byte {2u});
+  REQUIRE(page_des.encryption_mode == scsi::encrypt_mode::on);
+  REQUIRE(page_des.decryption_mode == scsi::decrypt_mode::on);
+  REQUIRE(page_des.algorithm_index == 1u);
+  REQUIRE(ntohl(page_des.key_instance_counter) == 1u);
+  REQUIRE((page_des.flags & scsi::page_des::flags_parameters_control_mask)
+          == std::byte {1u} << scsi::page_des::flags_parameters_control_pos);
+  REQUIRE((page_des.flags & scsi::page_des::flags_vcelb_mask) ==
+          scsi::page_des::flags_vcelb_mask);
+  REQUIRE((page_des.flags & scsi::page_des::flags_ceems_mask) == std::byte {});
+  REQUIRE((page_des.flags & scsi::page_des::flags_rdmd_mask) == std::byte {});
 
-  REQUIRE(page.kads.size() == 1);
-  REQUIRE(page.kads[0].authenticated == 1);
-  REQUIRE(BSSHORT(page.kads[0].descriptorLength) == std::strlen("Hello world!"));
-  REQUIRE(memcmp(page.kads[0].descriptor, "Hello world!", BSSHORT(page.kads[0].descriptorLength)) == 0);
+  auto kads = read_page_kads(page_des);
+  REQUIRE(kads.size() == 1u);
+  REQUIRE(ntohs(kads[0]->length) == std::strlen("Hello world!"));
+  REQUIRE(memcmp(kads[0]->descriptor, "Hello world!", ntohs(kads[0]->length)) == 0);
 }
 
 TEST_CASE("Interpret next block encryption status page", "[scsi]") {
@@ -217,17 +218,18 @@ TEST_CASE("Interpret next block encryption status page", "[scsi]") {
     0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, 0x21,
   };
 
-  SSP_NBES page(reinterpret_cast<const SSP_PAGE_BUFFER*>(buffer));
-  REQUIRE(BSSHORT(page.nbes.pageCode) == 0x21);
-  REQUIRE(BSSHORT(page.nbes.length) == 0x1c);
-  REQUIRE(page.nbes.compressionStatus == 0);
-  REQUIRE(page.nbes.encryptionStatus == 5);
-  REQUIRE(page.nbes.algorithmIndex == 1);
-  REQUIRE(page.nbes.EMES == 0);
-  REQUIRE(page.nbes.RDMDS == 0);
+  auto& page_nbes {reinterpret_cast<const scsi::page_nbes&>(buffer)};
+  REQUIRE(ntohs(page_nbes.page_code) == 0x21u);
+  REQUIRE(ntohs(page_nbes.length) == 28u);
+  REQUIRE((page_nbes.status & scsi::page_nbes::status_compression_mask) == std::byte {});
+  REQUIRE((page_nbes.status & scsi::page_nbes::status_encryption_mask)
+          == std::byte {5u} << scsi::page_nbes::status_encryption_pos);
+  REQUIRE(page_nbes.algorithm_index == 1u);
+  REQUIRE((page_nbes.flags & scsi::page_nbes::flags_emes_mask) == std::byte {});
+  REQUIRE((page_nbes.flags & scsi::page_nbes::flags_rdmds_mask) == std::byte {});
 
-  REQUIRE(page.kads.size() == 1);
-  REQUIRE(page.kads[0].authenticated == 1);
-  REQUIRE(BSSHORT(page.kads[0].descriptorLength) == std::strlen("Hello world!"));
-  REQUIRE(memcmp(page.kads[0].descriptor, "Hello world!", BSSHORT(page.kads[0].descriptorLength)) == 0);
+  auto kads = read_page_kads(page_nbes);
+  REQUIRE(kads.size() == 1u);
+  REQUIRE(ntohs(kads[0]->length) == std::strlen("Hello world!"));
+  REQUIRE(memcmp(kads[0]->descriptor, "Hello world!", ntohs(kads[0]->length)) == 0);
 }
