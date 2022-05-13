@@ -10,6 +10,20 @@
 
 using namespace std::literals::string_literals;
 
+TEST_CASE("Test key_from_hex_chars", "[output]")
+{
+  REQUIRE(key_from_hex_chars(""s) == std::vector<std::uint8_t> {});
+  REQUIRE(key_from_hex_chars("hello"s) == std::nullopt);
+  REQUIRE(key_from_hex_chars("12z"s) == std::nullopt);
+  REQUIRE(key_from_hex_chars("0xabcd"s) == std::nullopt);
+  REQUIRE(key_from_hex_chars("ab cd"s) == std::nullopt);
+  REQUIRE(key_from_hex_chars("a"s) == std::vector<std::uint8_t> {0x0a});
+  REQUIRE(key_from_hex_chars("0123456789abcdef"s) ==
+          std::vector<std::uint8_t> {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef});
+  REQUIRE(key_from_hex_chars("0123456789ABCDEF"s) ==
+          std::vector<std::uint8_t> {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef});
+}
+
 /**
  * Compare the output of stenc given device responses
  *
