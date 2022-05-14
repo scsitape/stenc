@@ -200,7 +200,7 @@ static void print_device_status(std::ostream& os, const scsi::page_des& opt, boo
 }
 
 static void showDriveStatus(const std::string& tapeDrive, bool detail) {
-  alignas(4) scsi::page_buffer buffer;
+  alignas(4) scsi::page_buffer buffer {};
   scsi::get_des(tapeDrive, buffer, sizeof(buffer));
   auto& opt {reinterpret_cast<const scsi::page_des&>(buffer)};
 
@@ -281,7 +281,7 @@ static void print_volume_status(std::ostream& os, const scsi::page_nbes& opt)
 }
 
 static void showVolumeStatus(const std::string& tapeDrive) {
-  alignas(4) scsi::page_buffer buffer;
+  alignas(4) scsi::page_buffer buffer {};
   scsi::get_nbes(tapeDrive, buffer, sizeof(buffer));
   auto& opt {reinterpret_cast<const scsi::page_nbes&>(buffer)};
 
@@ -420,7 +420,7 @@ int main(int argc, const char **argv) {
         inquiryDrive(tapeDrive);
       }
       showDriveStatus(tapeDrive, detail);
-      if (detail) {
+      if (detail && scsi::is_device_ready(tapeDrive)) {
         showVolumeStatus(tapeDrive);
       }
       exit(EXIT_SUCCESS);
@@ -495,7 +495,7 @@ int main(int argc, const char **argv) {
                                     key, key_name, rdmc, ckod)};
     scsi::write_sde(tapeDrive, sde_buffer.get());
 
-    alignas(4) scsi::page_buffer buffer;
+    alignas(4) scsi::page_buffer buffer {};
     scsi::get_des(tapeDrive, buffer, sizeof(buffer));
     auto& opt {reinterpret_cast<const scsi::page_des&>(buffer)};
 

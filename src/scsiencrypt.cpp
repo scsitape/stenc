@@ -83,7 +83,7 @@ static void scsi_execute(const std::string& device, const std::uint8_t *cmd_p,
                          std::size_t dxfer_len, scsi_direction direction)
 {
 #if defined(OS_LINUX)
-  unique_fd fd {open(device.c_str(), O_RDONLY)};
+  unique_fd fd {open(device.c_str(), O_RDONLY | O_NDELAY)};
   if (!fd) {
     std::ostringstream oss;
     oss << "Cannot open device " << device;
@@ -145,6 +145,19 @@ static void scsi_execute(const std::string& device, const std::uint8_t *cmd_p,
 }
 
 namespace scsi {
+
+bool is_device_ready(const std::string& device)
+{
+  const std::uint8_t test_unit_ready_cmd[6] {};
+
+  try {
+    scsi_execute(device, test_unit_ready_cmd, sizeof(test_unit_ready_cmd),
+                 nullptr, 0u, scsi_direction::from_device);
+    return true;
+  } catch (const scsi::scsi_error& err) {
+    return false;
+  }
+}
 
 void get_des(const std::string& device, std::uint8_t *buffer, std::size_t length)
 {

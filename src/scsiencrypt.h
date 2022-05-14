@@ -321,6 +321,9 @@ std::vector<const kad *> read_page_kads(const Page& page)
   return v;
 }
 
+// Check if a tape is loaded
+bool is_device_ready(const std::string& device);
+// Get SCSI inquiry data from device
 inquiry_data get_inquiry(const std::string& device);
 // Get data encryption status page
 void get_des(const std::string& device, std::uint8_t *buffer, std::size_t length);
