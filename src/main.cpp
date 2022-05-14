@@ -43,20 +43,13 @@ GNU General Public License for more details.
 
 #include "scsiencrypt.h"
 
-void showUsage();
-void errorOut(const std::string& message);
-void inquiryDrive(const std::string& tapeDevice);
-void showDriveStatus(const std::string& tapeDevice, bool detail);
-void showVolumeStatus(const std::string& tapeDevice);
-void echo(bool);
-
-static std::optional<std::vector<uint8_t>> key_from_hex_chars(const std::string& s)
+static std::optional<std::vector<std::uint8_t>> key_from_hex_chars(const std::string& s)
 {
   auto it = s.data();
-  std::vector<uint8_t> bytes;
+  std::vector<std::uint8_t> bytes;
 
   if (s.size() % 2) {  // treated as if there is an implicit leading 0
-    uint8_t result;
+    std::uint8_t result;
     auto [ptr, ec] { std::from_chars(it, it + 1, result, 16) };
     if (ec != std::errc {}) {
       return {};
@@ -66,7 +59,7 @@ static std::optional<std::vector<uint8_t>> key_from_hex_chars(const std::string&
   }
 
   while (*it) {
-    uint8_t result;
+    std::uint8_t result;
     auto [ptr, ec] { std::from_chars(it, it + 2, result, 16) };
     if (ec != std::errc {}) {
       return {};
@@ -75,6 +68,232 @@ static std::optional<std::vector<uint8_t>> key_from_hex_chars(const std::string&
     it = ptr;
   }
   return bytes;
+}
+
+// shows the command usage
+static void showUsage() {
+  std::cerr
+      << "Usage: stenc --version | "
+         "-f <device> [--detail] [-e <on/mixed/rawread/off> [-k <file>] "
+         "[-kd <description>] [-a <index>] [--protect | --unprotect] [--ckod] ]\n\n"
+         "Type 'man stenc' for more information.\n";
+}
+
+// exits to shell with an error message
+static void errorOut(const std::string& message) {
+  std::cerr << "Error: " << message << "\n";
+  showUsage();
+  exit(EXIT_FAILURE);
+}
+
+static void print_device_inquiry(std::ostream& os, const scsi::inquiry_data& iresult)
+{
+  os << std::left << std::setw(25) << "Vendor:";
+  os.write(iresult.vendor, 8);
+  os.put('\n');
+  os << std::left << std::setw(25) << "Product ID:";
+  os.write(iresult.product_id, 16);
+  os.put('\n');
+  os << std::left << std::setw(25) << "Product Revision:";
+  os.write(iresult.product_rev, 4);
+  os.put('\n');
+}
+
+static void inquiryDrive(const std::string& tapeDevice) {
+  // todo: std::cout should not be used outside main()
+  auto iresult {scsi::get_inquiry(tapeDevice)};
+  print_device_inquiry(std::cout, iresult);
+}
+
+static void print_device_status(std::ostream& os, const scsi::page_des& opt, bool detail)
+{
+  std::string emode = "unknown";
+  os << std::left << std::setw(25) << "Drive Encryption:";
+  if (opt.encryption_mode == scsi::encrypt_mode::on && // encrypt
+      opt.decryption_mode == scsi::decrypt_mode::on    // read only encrypted data
+  )
+    emode = "on";
+  if (opt.encryption_mode == scsi::encrypt_mode::on && // encrypt
+      opt.decryption_mode == scsi::decrypt_mode::mixed // read encrypted and unencrypted
+  )
+    emode = "mixed";
+
+  if (opt.encryption_mode == scsi::encrypt_mode::on && // encrypt
+      opt.decryption_mode == scsi::decrypt_mode::raw   // read encrypted and unencrypted
+  )
+    emode = "rawread";
+
+  if (opt.encryption_mode == scsi::encrypt_mode::off && // encrypt
+      opt.decryption_mode == scsi::decrypt_mode::off    // read encrypted and unencrypted
+  )
+    emode = "off";
+
+  os << emode << "\n";
+  if (detail) {
+    os << std::left << std::setw(25) << "Drive Output:";
+    switch (opt.decryption_mode) {
+    case scsi::decrypt_mode::off:
+      os << "Not decrypting\n";
+      os << std::setw(25) << " "
+         << "Raw encrypted data not outputted\n";
+      break;
+    case scsi::decrypt_mode::raw:
+      os << "Not decrypting\n";
+      os << std::setw(25) << " "
+         << "Raw encrypted data outputted\n";
+      break;
+    case scsi::decrypt_mode::on:
+      os << "Decrypting\n";
+      os << std::setw(25) << " "
+         << "Unencrypted data not outputted\n";
+      break;
+    case scsi::decrypt_mode::mixed:
+      os << "Decrypting\n";
+      os << std::setw(25) << " "
+         << "Unencrypted data outputted\n";
+      break;
+    default:
+      os << "Unknown '0x" << std::hex << static_cast<unsigned int>(opt.decryption_mode)
+         << "' \n";
+      break;
+    }
+    os << std::setw(25) << "Drive Input:";
+    switch (opt.encryption_mode) {
+    case scsi::encrypt_mode::off:
+      os << "Not encrypting\n";
+      break;
+    case scsi::encrypt_mode::on:
+      os << "Encrypting\n";
+      break;
+    default:
+      os << "Unknown result '0x" << std::hex
+                << static_cast<unsigned int>(opt.encryption_mode) << "'\n";
+      break;
+    }
+    if ((opt.flags & scsi::page_des::flags_rdmd_mask) == scsi::page_des::flags_rdmd_mask) {
+      os << std::setw(25) << " "
+         << "Protecting from raw read\n";
+    }
+
+    os << std::setw(25) << "Key Instance Counter:" << std::dec
+       << ntohl(opt.key_instance_counter) << "\n";
+    if (opt.algorithm_index != 0) {
+      os << std::setw(25) << "Encryption Algorithm:" << std::hex
+         << static_cast<unsigned int>(opt.algorithm_index) << "\n";
+    }
+  }
+  auto kads {scsi::read_page_kads(opt)};
+  for (auto kd: kads) {
+    switch (kd->type) {
+    case scsi::kad_type::ukad:
+      os << std::setw(25) << "Drive Key Desc.(uKAD): ";
+      os.write(reinterpret_cast<const char *>(kd->descriptor), ntohs(kd->length));
+      os.put('\n');
+      break;
+    case scsi::kad_type::akad:
+      os << std::setw(25) << "Drive Key Desc.(aKAD): ";
+      os.write(reinterpret_cast<const char *>(kd->descriptor), ntohs(kd->length));
+      os.put('\n');
+      break;
+    }
+  }
+}
+
+static void showDriveStatus(const std::string& tapeDrive, bool detail) {
+  alignas(4) scsi::page_buffer buffer;
+  scsi::get_des(tapeDrive, buffer, sizeof(buffer));
+  auto& opt {reinterpret_cast<const scsi::page_des&>(buffer)};
+
+  print_device_status(std::cout, opt, detail);
+}
+
+static void print_volume_status(std::ostream& os, const scsi::page_nbes& opt)
+{
+  auto compression_status {
+    static_cast<std::uint8_t>((opt.status & scsi::page_nbes::status_compression_mask)
+                              >> scsi::page_nbes::status_compression_pos)
+  };
+  // From vendor docs, no known drives actually report anything other than 0
+  if (compression_status != 0u) {
+    os << std::left << std::setw(25) << "Volume Compressed:";
+    switch (compression_status) {
+    case 0u:
+      os << "Drive cannot determine\n";
+      break;
+    default:
+      os << "Unknown result '" << std::hex
+         << static_cast<unsigned int>(compression_status) << "'\n";
+      break;
+    }
+  }
+  os << std::left << std::setw(25) << "Volume Encryption:";
+  auto encryption_status {
+    static_cast<std::uint8_t>((opt.status & scsi::page_nbes::status_encryption_mask)
+                              >> scsi::page_nbes::status_encryption_pos)
+  };
+  auto kads {read_page_kads(opt)};
+  switch (encryption_status) {
+  case 0u:
+  case 1u:
+    os << "Unable to determine\n";
+    break;
+  case 2u:
+    os << "Tape position not at a logical block\n";
+    break;
+  case 3u:
+    os << "Not encrypted\n";
+    break;
+  case 5u:
+    os << "Encrypted and able to decrypt\n";
+    if ((opt.flags & scsi::page_nbes::flags_rdmds_mask) == scsi::page_nbes::flags_rdmds_mask) {
+      os << std::left << std::setw(25) << " Protected from raw read\n";
+    }
+    break;
+  case 6u:
+    os << "Encrypted, but unable to decrypt due to invalid key.\n";
+    for (auto kd: kads) {
+      switch (kd->type) {
+      case scsi::kad_type::ukad:
+        os << std::setw(25) << "Volume Key Desc.(uKAD): ";
+        os.write(reinterpret_cast<const char *>(kd->descriptor), ntohs(kd->length));
+        os.put('\n');
+        break;
+      case scsi::kad_type::akad:
+        os << std::setw(25) << "Volume Key Desc.(aKAD): ";
+        os.write(reinterpret_cast<const char *>(kd->descriptor), ntohs(kd->length));
+        os.put('\n');
+        break;
+      }
+    }
+    if ((opt.flags & scsi::page_nbes::flags_rdmds_mask) == scsi::page_nbes::flags_rdmds_mask) {
+      os << std::left << std::setw(25) << " Protected from raw read\n";
+    }
+    break;
+  default:
+    os << "Unknown result '" << std::hex
+       << static_cast<unsigned int>(encryption_status) << "'\n";
+    break;
+  }
+  if (opt.algorithm_index != 0) {
+    os << std::left << std::setw(25)
+       << "Volume Algorithm:" << static_cast<unsigned int>(opt.algorithm_index) << "\n";
+  }
+}
+
+static void showVolumeStatus(const std::string& tapeDrive) {
+  alignas(4) scsi::page_buffer buffer;
+  scsi::get_nbes(tapeDrive, buffer, sizeof(buffer));
+  auto& opt {reinterpret_cast<const scsi::page_nbes&>(buffer)};
+
+  print_volume_status(std::cout, opt);
+}
+
+static void echo(bool on) {
+  struct termios settings {};
+  tcgetattr(STDIN_FILENO, &settings);
+  settings.c_lflag =
+      on ? (settings.c_lflag | ECHO) : (settings.c_lflag & ~(ECHO));
+  tcsetattr(STDIN_FILENO, TCSANOW, &settings);
 }
 
 #if !defined(CATCH_CONFIG_MAIN)
@@ -106,10 +325,10 @@ int main(int argc, const char **argv) {
       exit(EXIT_SUCCESS);
     }
     if (thisCmd == "-e") {
-      if (nextCmd == ""){
+      if (nextCmd == "") {
         errorOut("Key file not specified after -k option");
       }
-      if (nextCmd == "on"){
+      if (nextCmd == "on") {
         // encrypt, read only encrypted data
         enc_mode = scsi::encrypt_mode::on;
         dec_mode = scsi::decrypt_mode::on;
@@ -156,7 +375,7 @@ int main(int argc, const char **argv) {
       }
       rdmc = scsi::sde_rdmc::disabled;
     } else if (thisCmd == "--unprotect") {
-      if (rdmc == scsi::sde_rdmc::disabled){
+      if (rdmc == scsi::sde_rdmc::disabled) {
         errorOut("'--unprotect' cannot be specified at the same time as "
                  "'--protect'");
       }
@@ -197,11 +416,11 @@ int main(int argc, const char **argv) {
     << "--------------------------------------------------\n";
 
     try {
-      if (detail){
+      if (detail) {
         inquiryDrive(tapeDrive);
       }
       showDriveStatus(tapeDrive, detail);
-      if (detail){
+      if (detail) {
         showVolumeStatus(tapeDrive);
       }
       exit(EXIT_SUCCESS);
@@ -321,227 +540,3 @@ int main(int argc, const char **argv) {
   }
 }
 #endif // defined(CATCH_CONFIG_MAIN)
-
-// exits to shell with an error message
-void errorOut(const std::string& message) {
-  std::cerr << "Error: " << message << "\n";
-  showUsage();
-  exit(EXIT_FAILURE);
-}
-
-// shows the command usage
-void showUsage() {
-  std::cerr
-      << "Usage: stenc --version | "
-         "-f <device> [--detail] [-e <on/mixed/rawread/off> [-k <file>] "
-         "[-kd <description>] [-a <index>] [--protect | --unprotect] [--ckod] ]\n\n"
-         "Type 'man stenc' for more information.\n";
-}
-
-static void print_device_inquiry(std::ostream& os, const scsi::inquiry_data& iresult)
-{
-  os << std::left << std::setw(25) << "Vendor:";
-  os.write(iresult.vendor, 8);
-  os.put('\n');
-  os << std::left << std::setw(25) << "Product ID:";
-  os.write(iresult.product_id, 16);
-  os.put('\n');
-  os << std::left << std::setw(25) << "Product Revision:";
-  os.write(iresult.product_rev, 4);
-  os.put('\n');
-}
-
-void inquiryDrive(const std::string& tapeDevice) {
-  // todo: std::cout should not be used outside main()
-  auto iresult {scsi::get_inquiry(tapeDevice)};
-  print_device_inquiry(std::cout, iresult);
-}
-
-static void print_device_status(std::ostream& os, const scsi::page_des& opt, bool detail)
-{
-  std::string emode = "unknown";
-  os << std::left << std::setw(25) << "Drive Encryption:";
-  if (opt.encryption_mode == scsi::encrypt_mode::on && // encrypt
-      opt.decryption_mode == scsi::decrypt_mode::on    // read only encrypted data
-  )
-    emode = "on";
-  if (opt.encryption_mode == scsi::encrypt_mode::on && // encrypt
-      opt.decryption_mode == scsi::decrypt_mode::mixed // read encrypted and unencrypted
-  )
-    emode = "mixed";
-
-  if (opt.encryption_mode == scsi::encrypt_mode::on && // encrypt
-      opt.decryption_mode == scsi::decrypt_mode::raw   // read encrypted and unencrypted
-  )
-    emode = "rawread";
-
-  if (opt.encryption_mode == scsi::encrypt_mode::off && // encrypt
-      opt.decryption_mode == scsi::decrypt_mode::off    // read encrypted and unencrypted
-  )
-    emode = "off";
-
-  os << emode << "\n";
-  if (detail) {
-    os << std::left << std::setw(25) << "Drive Output:";
-    switch (opt.decryption_mode) {
-    case scsi::decrypt_mode::off:
-      os << "Not decrypting\n";
-      os << std::setw(25) << " "
-         << "Raw encrypted data not outputted\n";
-      break;
-    case scsi::decrypt_mode::raw:
-      os << "Not decrypting\n";
-      os << std::setw(25) << " "
-         << "Raw encrypted data outputted\n";
-      break;
-    case scsi::decrypt_mode::on:
-      os << "Decrypting\n";
-      os << std::setw(25) << " "
-         << "Unencrypted data not outputted\n";
-      break;
-    case scsi::decrypt_mode::mixed:
-      os << "Decrypting\n";
-      os << std::setw(25) << " "
-         << "Unencrypted data outputted\n";
-      break;
-    default:
-      os << "Unknown '0x" << std::hex << static_cast<unsigned int>(opt.decryption_mode)
-         << "' \n";
-      break;
-    }
-    os << std::setw(25) << "Drive Input:";
-    switch (opt.encryption_mode) {
-    case scsi::encrypt_mode::off:
-      os << "Not encrypting\n";
-      break;
-    case scsi::encrypt_mode::on:
-      os << "Encrypting\n";
-      break;
-    default:
-      os << "Unknown result '0x" << std::hex
-                << static_cast<unsigned int>(opt.encryption_mode) << "'\n";
-      break;
-    }
-    if ((opt.flags & scsi::page_des::flags_rdmd_mask) == scsi::page_des::flags_rdmd_mask) {
-      os << std::setw(25) << " "
-         << "Protecting from raw read\n";
-    }
-
-    os << std::setw(25) << "Key Instance Counter:" << std::dec
-       << ntohl(opt.key_instance_counter) << "\n";
-    if (opt.algorithm_index != 0) {
-      os << std::setw(25) << "Encryption Algorithm:" << std::hex
-         << static_cast<unsigned int>(opt.algorithm_index) << "\n";
-    }
-  }
-  auto kads {scsi::read_page_kads(opt)};
-  for (auto kd: kads) {
-    switch (kd->type) {
-    case KAD_TYPE_UKAD:
-      os << std::setw(25) << "Drive Key Desc.(uKAD): ";
-      os.write(reinterpret_cast<const char *>(kd->descriptor), ntohs(kd->length));
-      os.put('\n');
-      break;
-    case KAD_TYPE_AKAD:
-      os << std::setw(25) << "Drive Key Desc.(aKAD): ";
-      os.write(reinterpret_cast<const char *>(kd->descriptor), ntohs(kd->length));
-      os.put('\n');
-      break;
-    }
-  }
-}
-
-void showDriveStatus(const std::string& tapeDrive, bool detail) {
-  alignas(4) scsi::page_buffer buffer;
-  scsi::get_des(tapeDrive, buffer, sizeof(buffer));
-  auto& opt {reinterpret_cast<const scsi::page_des&>(buffer)};
-
-  print_device_status(std::cout, opt, detail);
-}
-
-static void print_volume_status(std::ostream& os, const scsi::page_nbes& opt)
-{
-  auto compression_status {
-    static_cast<std::uint8_t>((opt.status & scsi::page_nbes::status_compression_mask)
-                              >> scsi::page_nbes::status_compression_pos)
-  };
-  if (compression_status != 0u) {
-    os << std::left << std::setw(25) << "Volume Compressed:";
-    switch (compression_status) {
-    case 0u:
-      os << "Drive cannot determine\n";
-      break;
-    default:
-      os << "Unknown result '" << std::hex
-         << static_cast<unsigned int>(compression_status) << "'\n";
-      break;
-    }
-  }
-  os << std::left << std::setw(25) << "Volume Encryption:";
-  auto encryption_status {
-    static_cast<std::uint8_t>((opt.status & scsi::page_nbes::status_encryption_mask)
-                              >> scsi::page_nbes::status_encryption_pos)
-  };
-  auto kads {read_page_kads(opt)};
-  switch (encryption_status) {
-  case 1u:
-    os << "Unable to determine\n";
-    break;
-  case 2u:
-    os << "Logical block is not a logical block\n";
-    break;
-  case 3u:
-    os << "Not encrypted\n";
-    break;
-  case 5u:
-    os << "Encrypted and able to decrypt\n";
-    if ((opt.flags & scsi::page_nbes::flags_rdmds_mask) == scsi::page_nbes::flags_rdmds_mask) {
-      os << std::left << std::setw(25) << " Protected from raw read\n";
-    }
-    break;
-  case 6u:
-    os << "Encrypted, but unable to decrypt due to invalid key.\n";
-    for (auto kd: kads) {
-      switch (kd->type) {
-      case KAD_TYPE_UKAD:
-        os << std::setw(25) << "Volume Key Desc.(uKAD): ";
-        os.write(reinterpret_cast<const char *>(kd->descriptor), ntohs(kd->length));
-        os.put('\n');
-        break;
-      case KAD_TYPE_AKAD:
-        os << std::setw(25) << "Volume Key Desc.(aKAD): ";
-        os.write(reinterpret_cast<const char *>(kd->descriptor), ntohs(kd->length));
-        os.put('\n');
-        break;
-      }
-    }
-    if ((opt.flags & scsi::page_nbes::flags_rdmds_mask) == scsi::page_nbes::flags_rdmds_mask) {
-      os << std::left << std::setw(25) << " Protected from raw read\n";
-    }
-    break;
-  default:
-    os << "Unknown result '" << std::hex
-       << static_cast<unsigned int>(encryption_status) << "'\n";
-    break;
-  }
-  if (opt.algorithm_index != 0) {
-    os << std::left << std::setw(25)
-       << "Volume Algorithm:" << static_cast<unsigned int>(opt.algorithm_index) << "\n";
-  }
-}
-
-void showVolumeStatus(const std::string& tapeDrive) {
-  alignas(4) scsi::page_buffer buffer;
-  scsi::get_nbes(tapeDrive, buffer, sizeof(buffer));
-  auto& opt {reinterpret_cast<const scsi::page_nbes&>(buffer)};
-
-  print_volume_status(std::cout, opt);
-}
-
-void echo(bool on) {
-  struct termios settings {};
-  tcgetattr(STDIN_FILENO, &settings);
-  settings.c_lflag =
-      on ? (settings.c_lflag | ECHO) : (settings.c_lflag & ~(ECHO));
-  tcsetattr(STDIN_FILENO, TCSANOW, &settings);
-}

@@ -20,19 +20,13 @@ GNU General Public License for more details.
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <type_traits>
 
 #include <fcntl.h>
 #include <sys/ioctl.h>
-#include <sys/mtio.h>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
-#endif
-#ifdef HAVE_STDLIB_H
-#include <stdlib.h>
-#endif
-#ifdef HAVE_STRING_H
-#include <string.h>
 #endif
 
 #if defined(OS_LINUX)
@@ -85,7 +79,7 @@ using unique_fd = std::unique_ptr<int, generic_deleter<int, -1, decltype(&close)
 enum class scsi_direction { to_device, from_device };
 
 static void scsi_execute(const std::string& device, const std::uint8_t *cmd_p,
-                         std::size_t cmd_len, const std::uint8_t *dxfer_p,
+                         std::size_t cmd_len, std::uint8_t *dxfer_p,
                          std::size_t dxfer_len, scsi_direction direction)
 {
 #if defined(OS_LINUX)
@@ -103,7 +97,7 @@ static void scsi_execute(const std::string& device, const std::uint8_t *cmd_p,
   cmdio.dxfer_direction = (direction == scsi_direction::to_device)
                           ? SG_DXFER_TO_DEV : SG_DXFER_FROM_DEV;
   cmdio.dxfer_len = dxfer_len;
-  cmdio.dxferp = const_cast<unsigned char*>(dxfer_p);
+  cmdio.dxferp = dxfer_p;
   cmdio.cmdp = const_cast<unsigned char*>(cmd_p);
   cmdio.sbp = sense_buf->data();
   cmdio.mx_sb_len = sizeof(decltype(sense_buf)::element_type);
@@ -134,8 +128,8 @@ static void scsi_execute(const std::string& device, const std::uint8_t *cmd_p,
   cam_fill_csio(&ccb->csio, RETRYCOUNT, nullptr,
                 CAM_PASS_ERR_RECOVER | CAM_CDB_POINTER |
                   (direction == scsi_direction::to_device ? CAM_DIR_OUT : CAM_DIR_IN),
-                MSG_SIMPLE_Q_TAG, const_cast<u_int8_t*>(dxfer_p),
-                dxfer_len, SSD_FULL_SIZE, cmd_len, SCSI_TIMEOUT);
+                MSG_SIMPLE_Q_TAG, dxfer_p, dxfer_len, SSD_FULL_SIZE, cmd_len,
+                SCSI_TIMEOUT);
   ccb->csio.cdb_io.cdb_ptr = const_cast<u_int8_t*>(cmd_p);
   if (cam_send_ccb(dev.get(), ccb.get())) {
     throw std::system_error {errno, std::generic_category()};
@@ -152,8 +146,7 @@ static void scsi_execute(const std::string& device, const std::uint8_t *cmd_p,
 
 namespace scsi {
 
-void get_des(const std::string& device, const std::uint8_t *buffer,
-             std::size_t length)
+void get_des(const std::string& device, std::uint8_t *buffer, std::size_t length)
 {
   const std::uint8_t spin_des_command[] {
     SSP_SPIN_OPCODE,
@@ -170,8 +163,7 @@ void get_des(const std::string& device, const std::uint8_t *buffer,
                buffer, length, scsi_direction::from_device);
 }
 
-void get_nbes(const std::string& device, const std::uint8_t *buffer,
-              std::size_t length)
+void get_nbes(const std::string& device, std::uint8_t *buffer, std::size_t length)
 {
   const std::uint8_t spin_nbes_command[] {
     SSP_SPIN_OPCODE,
@@ -188,8 +180,7 @@ void get_nbes(const std::string& device, const std::uint8_t *buffer,
                buffer, length, scsi_direction::from_device);
 }
 
-void get_dec(const std::string& device, const std::uint8_t *buffer,
-             std::size_t length)
+void get_dec(const std::string& device, std::uint8_t *buffer, std::size_t length)
 {
   const uint8_t spin_dec_command[] {
     SSP_SPIN_OPCODE,
@@ -208,9 +199,9 @@ void get_dec(const std::string& device, const std::uint8_t *buffer,
 inquiry_data get_inquiry(const std::string& device)
 {
   const uint8_t scsi_inq_command[] {0x12, 0, 0, 0, sizeof(inquiry_data), 0};
-  inquiry_data inq;
+  inquiry_data inq {};
   scsi_execute(device, scsi_inq_command, sizeof(scsi_inq_command),
-               reinterpret_cast<const std::uint8_t*>(&inq), sizeof(inq),
+               reinterpret_cast<std::uint8_t*>(&inq), sizeof(inq),
                scsi_direction::from_device);
   return inq;
 }
@@ -218,7 +209,7 @@ inquiry_data get_inquiry(const std::string& device)
 std::unique_ptr<const std::uint8_t[]> make_sde(encrypt_mode enc_mode,
                                                decrypt_mode dec_mode,
                                                std::uint8_t algorithm_index,
-                                               const std::vector<std::uint8_t> key,
+                                               const std::vector<std::uint8_t>& key,
                                                const std::string& key_name,
                                                sde_rdmc rdmc, bool ckod)
 {
@@ -233,7 +224,7 @@ std::unique_ptr<const std::uint8_t[]> make_sde(encrypt_mode enc_mode,
   page.length = htons(length - sizeof(page_header));
   page.control = std::byte {2u} << page_sde::control_scope_pos; // all IT nexus = 10b
   page.flags |= std::byte {DEFAULT_CEEM} << page_sde::flags_ceem_pos;
-  page.flags |= std::byte {rdmc};
+  page.flags |= std::byte {static_cast<std::underlying_type_t<sde_rdmc>>(rdmc)};
   if (ckod) {
     page.flags |= page_sde::flags_ckod_mask;
   }
@@ -269,7 +260,7 @@ void write_sde(const std::string& device, const std::uint8_t *sde_buffer)
   };
 
   scsi_execute(device, spout_sde_command, sizeof(spout_sde_command),
-               sde_buffer, length, scsi_direction::to_device);
+               const_cast<std::uint8_t*>(sde_buffer), length, scsi_direction::to_device);
 }
 
 void print_sense_data(std::ostream& os, const sense_data& sd) {
