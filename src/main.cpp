@@ -421,7 +421,18 @@ int main(int argc, const char **argv) {
       }
       showDriveStatus(tapeDrive, detail);
       if (detail && scsi::is_device_ready(tapeDrive)) {
-        showVolumeStatus(tapeDrive);
+        try {
+          showVolumeStatus(tapeDrive);
+        } catch (const scsi::scsi_error& err) {
+          // #71: ignore BLANK CHECK sense key that some drives may return
+          // during media access check in getting NBES
+          auto sense_key {
+            err.get_sense().flags & scsi::sense_data::flags_sense_key_mask
+          };
+          if (sense_key != scsi::sense_data::blank_check) {
+            throw;
+          }
+        }
       }
       exit(EXIT_SUCCESS);
     } catch (const scsi::scsi_error& err) {

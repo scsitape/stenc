@@ -285,6 +285,17 @@ struct __attribute__((packed)) sense_data {
   std::uint8_t field_replaceable_unit_code;
   std::uint8_t sense_key_specific[3];
   std::uint8_t additional_sense_bytes[];
+
+  static constexpr std::byte no_sense {0u};
+  static constexpr std::byte recovered_error {1u};
+  static constexpr std::byte not_ready {2u};
+  static constexpr std::byte medium_error {3u};
+  static constexpr std::byte hardware_error {4u};
+  static constexpr std::byte illegal_request {5u};
+  static constexpr std::byte unit_attention {6u};
+  static constexpr std::byte data_protect {7u};
+  static constexpr std::byte blank_check {8u};
+
   static constexpr auto maximum_size {252u}; // per SPC-5
 };
 static_assert(sizeof(sense_data) == 18u);

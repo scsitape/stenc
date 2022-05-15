@@ -279,31 +279,31 @@ void write_sde(const std::string& device, const std::uint8_t *sde_buffer)
 void print_sense_data(std::ostream& os, const sense_data& sd) {
   os << std::left << std::setw(25) << "Sense Code: ";
 
-  auto sense_key {static_cast<unsigned int>(sd.flags & sense_data::flags_sense_key_mask)};
+  auto sense_key {sd.flags & sense_data::flags_sense_key_mask};
 
   switch (sense_key) {
-  case 0u:
+  case sense_data::no_sense:
     os << "No specific error";
     break;
-  case 2u:
+  case sense_data::not_ready:
     os << "Device not ready";
     break;
-  case 3u:
+  case sense_data::medium_error:
     os << "Medium Error";
     break;
-  case 4u:
+  case sense_data::hardware_error:
     os << "Hardware Error";
     break;
-  case 5u:
+  case sense_data::illegal_request:
     os << "Illegal Request";
     break;
-  case 6u:
+  case sense_data::unit_attention:
     os << "Unit Attention";
     break;
-  case 7u:
+  case sense_data::data_protect:
     os << "Data protect";
     break;
-  case 8u:
+  case sense_data::blank_check:
     os << "Blank tape";
     break;
   }
