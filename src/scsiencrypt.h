@@ -340,6 +340,8 @@ std::unique_ptr<const std::uint8_t[]> make_sde(encrypt_mode enc_mode,
 // Write set data encryption parameters to device
 void write_sde(const std::string& device, const std::uint8_t *sde_buffer);
 void print_sense_data(std::ostream& os, const sense_data& sd);
+std::vector<const algorithm_descriptor*> read_algorithms(const page_dec& page);
+
 }
 
 #endif
