@@ -34,20 +34,8 @@ GNU General Public License for more details.
 #include <sys/types.h>
 #endif
 
-constexpr size_t SSP_KEY_LENGTH = 0X20;
-constexpr size_t SSP_DESCRIPTOR_LENGTH = 1024;
-constexpr size_t SSP_KAD_HEAD_LENGTH = 4;
-constexpr size_t SSP_PAGE_ALLOCATION = 8192;
-constexpr size_t SSP_UKAD_LENGTH = 0x1e;
-
-constexpr uint8_t KAD_TYPE_UKAD = 0x00;
-constexpr uint8_t KAD_TYPE_AKAD = 0x01;
-constexpr uint8_t KAD_TYPE_NONCE = 0x02;
-constexpr uint8_t KAD_TYPE_META = 0x03;
-
-constexpr uint8_t RDMC_PROTECT = 0x03;
-constexpr uint8_t RDMC_UNPROTECT = 0x02;
-constexpr uint8_t RDMC_DEFAULT = 0x00;
+constexpr std::size_t SSP_PAGE_ALLOCATION = 8192;
+constexpr std::size_t SSP_UKAD_LENGTH = 0x1e;
 
 // outputs hex in a 2 digit pair
 #define HEX(x)                                                                 \
@@ -68,9 +56,17 @@ enum class decrypt_mode: std::uint8_t {
   mixed = 3u,
 };
 
+enum class kad_type: std::uint8_t {
+  ukad = 0u, // unauthenticated key-associated data
+  akad = 1u, // authenticated key-associated data
+  nonce = 2u, // nonce value
+  mkad = 3u, // metadata key-associated data
+  wkkad = 4u, // wrapped key key-associated data
+};
+
 // key-associated data
 struct __attribute__((packed)) kad {
-  std::uint8_t type;
+  kad_type type;
   std::byte flags;
   static constexpr auto flags_authenticated_pos {0u};
   static constexpr std::byte flags_authenticated_mask {7u << flags_authenticated_pos};
@@ -152,8 +148,8 @@ static_assert(sizeof(page_sde) == 20u);
 
 enum class sde_rdmc: std::uint8_t {
   algorithm_default = 0u << page_sde::flags_rdmc_pos,
-  enabled = 2u << page_sde::flags_rdmc_pos,
-  disabled = 3u << page_sde::flags_rdmc_pos,
+  enabled = 2u << page_sde::flags_rdmc_pos, // corresponds to --unprotect command line option
+  disabled = 3u << page_sde::flags_rdmc_pos, // corresponds to --protect command line option
 };
 
 // next block encryption status page
@@ -327,21 +323,18 @@ std::vector<const kad *> read_page_kads(const Page& page)
 
 inquiry_data get_inquiry(const std::string& device);
 // Get data encryption status page
-void get_des(const std::string& device, const std::uint8_t *buffer,
-             std::size_t length);
+void get_des(const std::string& device, std::uint8_t *buffer, std::size_t length);
 // Get next block encryption status page
-void get_nbes(const std::string& device, const std::uint8_t *buffer,
-              std::size_t length);
+void get_nbes(const std::string& device, std::uint8_t *buffer, std::size_t length);
 // Get device encryption capabilities
-void get_dec(const std::string& device, const std::uint8_t *buffer,
-             std::size_t length);
+void get_dec(const std::string& device, std::uint8_t *buffer, std::size_t length);
 // Fill out a set data encryption page with parameters.
 // Result is allocated and returned as a std::unique_ptr and should
 // be sent to the device using scsi::write_sde
 std::unique_ptr<const std::uint8_t[]> make_sde(encrypt_mode enc_mode,
                                                decrypt_mode dec_mode,
                                                std::uint8_t algorithm_index,
-                                               const std::vector<std::uint8_t> key,
+                                               const std::vector<std::uint8_t>& key,
                                                const std::string& key_name,
                                                sde_rdmc rdmc, bool ckod);
 // Write set data encryption parameters to device
