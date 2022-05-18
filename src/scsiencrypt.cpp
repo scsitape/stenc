@@ -336,4 +336,18 @@ void print_sense_data(std::ostream& os, const sense_data& sd) {
 #endif
 }
 
+std::vector<const algorithm_descriptor*> read_algorithms(const page_dec& page)
+{
+  auto it {reinterpret_cast<const uint8_t*>(&page.ads[0])};
+  const auto end {reinterpret_cast<const uint8_t*>(&page) + ntohs(page.length) + sizeof(page_header)};
+  std::vector<const algorithm_descriptor*> v {};
+
+  while (it < end) {
+    auto elem {reinterpret_cast<const algorithm_descriptor*>(it)};
+    v.push_back(elem);
+    it += ntohs(elem->length) + 4u;  // length field + preceding 4 byte header
+  }
+  return v;
+}
+
 }

@@ -96,7 +96,8 @@ OPTIONS
    be changed using the --with-default-algorithm configure option).
    Setting encryption on/off may fail on some devices if this is not the
    correct algorithm for the drive (i.e. HP drives use an algorithm
-   index of 1).
+   index of 1). A list of supported algorithms can be obtained by requesting
+   drive status information with the **--detail** option.
 
 **--ckod**
    Only valid when setting encryption (see the **-e** option). Instructs

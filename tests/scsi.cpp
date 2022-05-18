@@ -15,9 +15,9 @@ using namespace std::literals::string_literals;
  * This checks that the program can correctly format command buffers that
  * reflect available input and program options.
  */
-TEST_CASE("Disable encryption command", "[scsi]") {
-  uint8_t buffer[1024] {};
-  const uint8_t expected[] {
+TEST_CASE("Disable encryption command", "[scsi]")
+{
+  const std::uint8_t expected[] {
     0x00, 0x10, // page code
     0x00, 0x10, // page length
     0x40, // scope
@@ -38,11 +38,12 @@ TEST_CASE("Disable encryption command", "[scsi]") {
                                    false)};
   auto& page {reinterpret_cast<const scsi::page_sde&>(*page_buffer.get())};
   REQUIRE(sizeof(scsi::page_header) + ntohs(page.length) == sizeof(expected));
-  REQUIRE(memcmp(&page, expected, sizeof(expected)) == 0);
+  REQUIRE(std::memcmp(&page, expected, sizeof(expected)) == 0);
 }
 
-TEST_CASE("Enable encryption command", "[scsi]") {
-  const uint8_t expected[] {
+TEST_CASE("Enable encryption command", "[scsi]")
+{
+  const std::uint8_t expected[] {
     0x00, 0x10, // page code
     0x00, 0x30, // page length
     0x40, // scope
@@ -72,11 +73,12 @@ TEST_CASE("Enable encryption command", "[scsi]") {
                                    false)};
   auto& page {reinterpret_cast<const scsi::page_sde&>(*page_buffer.get())};
   REQUIRE(sizeof(scsi::page_header) + ntohs(page.length) == sizeof(expected));
-  REQUIRE(memcmp(&page, expected, sizeof(expected)) == 0);
+  REQUIRE(std::memcmp(&page, expected, sizeof(expected)) == 0);
 }
 
-TEST_CASE("Enable encryption command with options", "[scsi]") {
-  const uint8_t expected[] {
+TEST_CASE("Enable encryption command with options", "[scsi]")
+{
+  const std::uint8_t expected[] {
     0x00, 0x10, // page code
     0x00, 0x30, // page length
     0x40, // scope
@@ -106,11 +108,12 @@ TEST_CASE("Enable encryption command with options", "[scsi]") {
                                    true)};
   auto& page {reinterpret_cast<const scsi::page_sde&>(*page_buffer.get())};
   REQUIRE(sizeof(scsi::page_header) + ntohs(page.length) == sizeof(expected));
-  REQUIRE(memcmp(&page, expected, sizeof(expected)) == 0);
+  REQUIRE(std::memcmp(&page, expected, sizeof(expected)) == 0);
 }
 
-TEST_CASE("Enable encryption command with key name", "[scsi]") {
-  const uint8_t expected[] {
+TEST_CASE("Enable encryption command with key name", "[scsi]")
+{
+  const std::uint8_t expected[] {
     0x00, 0x10, // page code
     0x00, 0x40, // page length
     0x40, // scope
@@ -146,7 +149,7 @@ TEST_CASE("Enable encryption command with key name", "[scsi]") {
                                    false)};
   auto& page {reinterpret_cast<const scsi::page_sde&>(*page_buffer.get())};
   REQUIRE(sizeof(scsi::page_header) + ntohs(page.length) == sizeof(expected));
-  REQUIRE(memcmp(&page, expected, sizeof(expected)) == 0);
+  REQUIRE(std::memcmp(&page, expected, sizeof(expected)) == 0);
 }
 
 /**
@@ -157,8 +160,9 @@ TEST_CASE("Enable encryption command with key name", "[scsi]") {
  * This checks the SSP_DES structure layout matches the spec, especially
  * with regard to byte ordering and bitfield positions.
  */
-TEST_CASE("Interpret device encryption status page", "[scsi]") {
-  const uint8_t buffer[] {
+TEST_CASE("Interpret device encryption status page", "[scsi]")
+{
+  const std::uint8_t buffer[] {
     0x00, 0x20, // page code
     0x00, 0x24, // length
     0x42, // nexus = 2h, key scope = 2h
@@ -198,12 +202,14 @@ TEST_CASE("Interpret device encryption status page", "[scsi]") {
 
   auto kads = read_page_kads(page_des);
   REQUIRE(kads.size() == 1u);
+  REQUIRE((kads[0]->flags & scsi::kad::flags_authenticated_mask) == std::byte {1u});
   REQUIRE(ntohs(kads[0]->length) == std::strlen("Hello world!"));
-  REQUIRE(memcmp(kads[0]->descriptor, "Hello world!", ntohs(kads[0]->length)) == 0);
+  REQUIRE(std::memcmp(kads[0]->descriptor, "Hello world!", ntohs(kads[0]->length)) == 0);
 }
 
-TEST_CASE("Interpret next block encryption status page", "[scsi]") {
-  const uint8_t buffer[] {
+TEST_CASE("Interpret next block encryption status page", "[scsi]")
+{
+  const std::uint8_t buffer[] {
     0x00, 0x21, // page code
     0x00, 0x1c, // length
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
@@ -230,6 +236,158 @@ TEST_CASE("Interpret next block encryption status page", "[scsi]") {
 
   auto kads = read_page_kads(page_nbes);
   REQUIRE(kads.size() == 1u);
+  REQUIRE((kads[0]->flags & scsi::kad::flags_authenticated_mask) == std::byte {1u});
   REQUIRE(ntohs(kads[0]->length) == std::strlen("Hello world!"));
-  REQUIRE(memcmp(kads[0]->descriptor, "Hello world!", ntohs(kads[0]->length)) == 0);
+  REQUIRE(std::memcmp(kads[0]->descriptor, "Hello world!", ntohs(kads[0]->length)) == 0);
+}
+
+TEST_CASE("Interpret data encryption capabilties page", "[scsi]")
+{
+  const std::uint8_t buffer[] {
+    0x00, 0x10, // page code
+    0x00, 0x3c, // length
+    0x09, // EXTDECC and CFG_P
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    // algorithm 1
+    0x01,
+    0x00,
+    0x00, 0x14,
+    0x8a, // capabilties
+    0x8c,
+    0x00, 0x20,
+    0x00, 0x3c,
+    0x00, 0x20,
+    0xed,
+    0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x01, 0x00, 0x14,
+    // algorithm 2
+    0x02,
+    0x00,
+    0x00, 0x14,
+    0x8a, // capabilties
+    0x8f,
+    0x00, 0x20,
+    0x00, 0x3c,
+    0x00, 0x20,
+    0xd9,
+    0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x01, 0x00, 0x10,
+  };
+  static_assert(sizeof(buffer) == sizeof(scsi::page_dec) +
+                2 * sizeof(scsi::algorithm_descriptor));
+
+  auto& page_dec {reinterpret_cast<const scsi::page_dec&>(buffer)};
+  REQUIRE(ntohs(page_dec.page_code) == 0x10u);
+  REQUIRE(ntohs(page_dec.length) == 60u);
+
+  REQUIRE((page_dec.flags & scsi::page_dec::flags_extdecc_mask) ==
+          std::byte {2u} << scsi::page_dec::flags_extdecc_pos);
+  REQUIRE((page_dec.flags & scsi::page_dec::flags_cfg_p_mask) ==
+          std::byte {1u} << scsi::page_dec::flags_cfg_p_pos);
+
+  auto algorithms {read_algorithms(page_dec)};
+  REQUIRE(algorithms.size() == 2u);
+
+  auto& algo1 {*algorithms[0]};
+  REQUIRE(algo1.algorithm_index == 1u);
+  REQUIRE(ntohs(algo1.length) == 20u);
+  REQUIRE((algo1.flags1 & scsi::algorithm_descriptor::flags1_avfmv_mask) ==
+          scsi::algorithm_descriptor::flags1_avfmv_mask);
+  REQUIRE((algo1.flags1 & scsi::algorithm_descriptor::flags1_sdk_c_mask) ==
+          std::byte {});
+  REQUIRE((algo1.flags1 & scsi::algorithm_descriptor::flags1_mac_c_mask) ==
+          std::byte {});
+  REQUIRE((algo1.flags1 & scsi::algorithm_descriptor::flags1_delb_c_mask) ==
+          std::byte {});
+  REQUIRE((algo1.flags1 & scsi::algorithm_descriptor::flags1_decrypt_c_mask) ==
+          std::byte {2u} << scsi::algorithm_descriptor::flags1_decrypt_c_pos);
+  REQUIRE((algo1.flags1 & scsi::algorithm_descriptor::flags1_encrypt_c_mask) ==
+          std::byte {2u} << scsi::algorithm_descriptor::flags1_encrypt_c_pos);
+
+  REQUIRE((algo1.flags2 & scsi::algorithm_descriptor::flags2_avfcp_mask) ==
+          std::byte {2u} << scsi::algorithm_descriptor::flags2_avfcp_pos);
+  REQUIRE((algo1.flags2 & scsi::algorithm_descriptor::flags2_nonce_mask) ==
+          std::byte {});
+  REQUIRE((algo1.flags2 & scsi::algorithm_descriptor::flags2_kadf_c_mask) ==
+          scsi::algorithm_descriptor::flags2_kadf_c_mask);
+  REQUIRE((algo1.flags2 & scsi::algorithm_descriptor::flags2_vcelb_c_mask) ==
+          scsi::algorithm_descriptor::flags2_vcelb_c_mask);
+  REQUIRE((algo1.flags2 & scsi::algorithm_descriptor::flags2_ukadf_mask) ==
+          std::byte {});
+  REQUIRE((algo1.flags2 & scsi::algorithm_descriptor::flags2_akadf_mask) ==
+          std::byte {});
+
+  REQUIRE(ntohs(algo1.maximum_ukad_length) == 32u);
+  REQUIRE(ntohs(algo1.maximum_akad_length) == 60u);
+  REQUIRE(ntohs(algo1.key_length) == 32u);
+
+  REQUIRE((algo1.flags3 & scsi::algorithm_descriptor::flags3_dkad_c_mask) ==
+          std::byte {3u} << scsi::algorithm_descriptor::flags3_dkad_c_pos);
+  REQUIRE((algo1.flags3 & scsi::algorithm_descriptor::flags3_eemc_c_mask) ==
+          std::byte {2u} << scsi::algorithm_descriptor::flags3_eemc_c_pos);
+  REQUIRE((algo1.flags3 & scsi::algorithm_descriptor::flags3_rdmc_c_mask) ==
+          std::byte {6u} << scsi::algorithm_descriptor::flags3_rdmc_c_pos);
+  REQUIRE((algo1.flags3 & scsi::algorithm_descriptor::flags3_earem_mask) ==
+          scsi::algorithm_descriptor::flags3_earem_mask);
+
+  REQUIRE((algo1.maximum_eedk_count & scsi::algorithm_descriptor::maximum_eedk_count_mask) ==
+          0u);
+  REQUIRE(ntohs(algo1.msdk_count) == 0u);
+  REQUIRE(ntohs(algo1.maximum_eedk_size) == 0u);
+  REQUIRE(ntohl(algo1.security_algorithm_code) == 0x00010014u);
+
+  auto& algo2 {*algorithms[1]};
+  REQUIRE(algo2.algorithm_index == 2u);
+  REQUIRE(ntohs(algo2.length) == 20u);
+  REQUIRE((algo2.flags1 & scsi::algorithm_descriptor::flags1_avfmv_mask) ==
+          scsi::algorithm_descriptor::flags1_avfmv_mask);
+  REQUIRE((algo2.flags1 & scsi::algorithm_descriptor::flags1_sdk_c_mask) ==
+          std::byte {});
+  REQUIRE((algo2.flags1 & scsi::algorithm_descriptor::flags1_mac_c_mask) ==
+          std::byte {});
+  REQUIRE((algo2.flags1 & scsi::algorithm_descriptor::flags1_delb_c_mask) ==
+          std::byte {});
+  REQUIRE((algo2.flags1 & scsi::algorithm_descriptor::flags1_decrypt_c_mask) ==
+          std::byte {2u} << scsi::algorithm_descriptor::flags1_decrypt_c_pos);
+  REQUIRE((algo2.flags1 & scsi::algorithm_descriptor::flags1_encrypt_c_mask) ==
+          std::byte {2u} << scsi::algorithm_descriptor::flags1_encrypt_c_pos);
+
+  REQUIRE((algo2.flags2 & scsi::algorithm_descriptor::flags2_avfcp_mask) ==
+          std::byte {2u} << scsi::algorithm_descriptor::flags2_avfcp_pos);
+  REQUIRE((algo2.flags2 & scsi::algorithm_descriptor::flags2_nonce_mask) ==
+          std::byte {});
+  REQUIRE((algo2.flags2 & scsi::algorithm_descriptor::flags2_kadf_c_mask) ==
+          scsi::algorithm_descriptor::flags2_kadf_c_mask);
+  REQUIRE((algo2.flags2 & scsi::algorithm_descriptor::flags2_vcelb_c_mask) ==
+          scsi::algorithm_descriptor::flags2_vcelb_c_mask);
+  REQUIRE((algo2.flags2 & scsi::algorithm_descriptor::flags2_ukadf_mask) ==
+          scsi::algorithm_descriptor::flags2_ukadf_mask);
+  REQUIRE((algo2.flags2 & scsi::algorithm_descriptor::flags2_akadf_mask) ==
+          scsi::algorithm_descriptor::flags2_akadf_mask);
+
+  REQUIRE(ntohs(algo2.maximum_ukad_length) == 32u);
+  REQUIRE(ntohs(algo2.maximum_akad_length) == 60u);
+  REQUIRE(ntohs(algo2.key_length) == 32u);
+
+  REQUIRE((algo2.flags3 & scsi::algorithm_descriptor::flags3_dkad_c_mask) ==
+          std::byte {3u} << scsi::algorithm_descriptor::flags3_dkad_c_pos);
+  REQUIRE((algo2.flags3 & scsi::algorithm_descriptor::flags3_eemc_c_mask) ==
+          std::byte {1u} << scsi::algorithm_descriptor::flags3_eemc_c_pos);
+  REQUIRE((algo2.flags3 & scsi::algorithm_descriptor::flags3_rdmc_c_mask) ==
+          std::byte {4u} << scsi::algorithm_descriptor::flags3_rdmc_c_pos);
+  REQUIRE((algo2.flags3 & scsi::algorithm_descriptor::flags3_earem_mask) ==
+          scsi::algorithm_descriptor::flags3_earem_mask);
+
+  REQUIRE((algo2.maximum_eedk_count & scsi::algorithm_descriptor::maximum_eedk_count_mask) ==
+          0u);
+  REQUIRE(ntohs(algo2.msdk_count) == 0u);
+  REQUIRE(ntohs(algo2.maximum_eedk_size) == 0u);
+  REQUIRE(ntohl(algo2.security_algorithm_code) == 0x00010010u);
 }

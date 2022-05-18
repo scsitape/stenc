@@ -86,6 +86,91 @@ static void errorOut(const std::string& message) {
   exit(EXIT_FAILURE);
 }
 
+static void print_algorithm_name(std::ostream& os, const uint32_t code)
+{
+  // Reference: SFSC / INCITS 501-2016
+  if (0x80010400 <= code && code <= 0x8001FFFF) {
+    os << "Vendor specific 0x" << std::setw(8) << std::setfill('0')
+       << std::hex << code;
+  }
+  switch (code) {
+  case 0x0001000C:
+    os << "AES-256-CBC-HMAC-SHA-1";
+    break;
+  case 0x00010010:
+    os << "AES-256-CCM-128";
+    break;
+  case 0x00010014:
+    os << "AES-256-GCM-128";
+    break;
+  case 0x00010016:
+    os << "AES-256-XTS-HMAC-SHA-512";
+    break;
+  default:
+    os << "Unknown 0x" << std::setw(8) << std::setfill('0')
+       << std::hex << code;
+  }
+}
+
+static void print_algorithms(std::ostream& os, const scsi::page_dec &page)
+{
+  auto algorithms {scsi::read_algorithms(page)};
+
+  os << "Supported algorithms:\n";
+
+  for (auto ad_ptr: algorithms) {
+    auto& ad {*ad_ptr};
+    os << std::left << std::setw(5) << (unsigned int) {ad.algorithm_index};
+    print_algorithm_name(os, ntohl(ad.security_algorithm_code));
+    os.put('\n');
+
+    // Print KAD capabilities and size
+    auto dkad_c {
+      static_cast<unsigned int>(ad.flags3 & scsi::algorithm_descriptor::flags3_dkad_c_mask)
+    };
+    if (dkad_c == 1u << scsi::algorithm_descriptor::flags3_dkad_c_pos) {
+      os << std::left << std::setw(5) << "" << "Key descriptors not allowed\n";
+    } else if (dkad_c) {
+      os << std::left << std::setw(5) << "";
+      if (dkad_c == 1u << scsi::algorithm_descriptor::flags3_dkad_c_pos) {
+        os << "Key descriptors required, ";
+      } else {
+        os << "Key descriptors allowed, ";
+      }
+      if ((ad.flags2 & scsi::algorithm_descriptor::flags2_ukadf_mask) ==
+          scsi::algorithm_descriptor::flags2_ukadf_mask) {
+        os << "fixed ";
+      } else {
+        os << "maximum ";
+      }
+      os << ntohs(ad.maximum_ukad_length) << " bytes\n";
+    }
+
+    // Print raw decryption mode capability:
+    auto rdmc_c {
+      static_cast<unsigned int>(ad.flags3 & scsi::algorithm_descriptor::flags3_rdmc_c_mask)
+    };
+    switch (rdmc_c) {
+    case 1u << scsi::algorithm_descriptor::flags3_rdmc_c_pos:
+    case 6u << scsi::algorithm_descriptor::flags3_rdmc_c_pos:
+      os << std::left << std::setw(5) << "";
+      os << "Raw decryption mode not allowed\n";
+      break;
+    case 4u << scsi::algorithm_descriptor::flags3_rdmc_c_pos:
+    case 5u << scsi::algorithm_descriptor::flags3_rdmc_c_pos:
+    case 7u << scsi::algorithm_descriptor::flags3_rdmc_c_pos:
+      os << std::left << std::setw(5) << "";
+      os << "Raw decryption mode allowed, raw read ";
+      if (rdmc_c == 4u << scsi::algorithm_descriptor::flags3_rdmc_c_pos) {
+        os << "disabled by default\n";
+      } else {
+        os << "enabled by default\n";
+      }
+      break;
+    }
+  }
+}
+
 static void print_device_inquiry(std::ostream& os, const scsi::inquiry_data& iresult)
 {
   os << std::left << std::setw(25) << "Vendor:";
@@ -433,6 +518,13 @@ int main(int argc, const char **argv) {
             throw;
           }
         }
+      }
+      if (detail) {
+        alignas(4) scsi::page_buffer buffer {};
+        scsi::get_dec(tapeDrive, buffer, sizeof(buffer));
+        auto& page {reinterpret_cast<const scsi::page_dec&>(buffer)};
+
+        print_algorithms(std::cout, page);
       }
       exit(EXIT_SUCCESS);
     } catch (const scsi::scsi_error& err) {
