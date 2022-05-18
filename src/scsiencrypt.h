@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 #include <array>
 #include <bitset>
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -39,28 +39,29 @@ constexpr std::size_t SSP_UKAD_LENGTH = 0x1e;
 
 // outputs hex in a 2 digit pair
 #define HEX(x)                                                                 \
-    std::right << std::setw(2) << std::setfill('0') << std::hex << (int)(x) << std::setfill(' ')
+  std::right << std::setw(2) << std::setfill('0') << std::hex << (int)(x)      \
+             << std::setfill(' ')
 
 namespace scsi {
 
-enum class encrypt_mode: std::uint8_t {
+enum class encrypt_mode : std::uint8_t {
   off = 0u,
   external = 1u,
   on = 2u,
 };
 
-enum class decrypt_mode: std::uint8_t {
+enum class decrypt_mode : std::uint8_t {
   off = 0u,
   raw = 1u,
   on = 2u,
   mixed = 3u,
 };
 
-enum class kad_type: std::uint8_t {
-  ukad = 0u, // unauthenticated key-associated data
-  akad = 1u, // authenticated key-associated data
+enum class kad_type : std::uint8_t {
+  ukad = 0u,  // unauthenticated key-associated data
+  akad = 1u,  // authenticated key-associated data
   nonce = 2u, // nonce value
-  mkad = 3u, // metadata key-associated data
+  mkad = 3u,  // metadata key-associated data
   wkkad = 4u, // wrapped key key-associated data
 };
 
@@ -69,7 +70,8 @@ struct __attribute__((packed)) kad {
   kad_type type;
   std::byte flags;
   static constexpr auto flags_authenticated_pos {0u};
-  static constexpr std::byte flags_authenticated_mask {7u << flags_authenticated_pos};
+  static constexpr std::byte flags_authenticated_mask {
+      7u << flags_authenticated_pos};
   std::uint16_t length;
   std::uint8_t descriptor[];
 };
@@ -97,12 +99,16 @@ struct __attribute__((packed)) page_des {
   std::uint32_t key_instance_counter;
   std::byte flags;
   static constexpr auto flags_parameters_control_pos {4u};
-  static constexpr std::byte flags_parameters_control_mask {7u << flags_parameters_control_pos};
-  static constexpr auto flags_vcelb_pos {3u}; // volume contains encrypted logical blocks
+  static constexpr std::byte flags_parameters_control_mask {
+      7u << flags_parameters_control_pos};
+  // volume contains encrypted logical blocks
+  static constexpr auto flags_vcelb_pos {3u};
   static constexpr std::byte flags_vcelb_mask {1u << flags_vcelb_pos};
-  static constexpr auto flags_ceems_pos {1u}; // check external encryption mode status
+  // check external encryption mode status
+  static constexpr auto flags_ceems_pos {1u};
   static constexpr std::byte flags_ceems_mask {3u << flags_ceems_pos};
-  static constexpr auto flags_rdmd_pos {0u}; // raw decryption mode disabled
+  // raw decryption mode disabled
+  static constexpr auto flags_rdmd_pos {0u};
   static constexpr std::byte flags_rdmd_mask {1u << flags_rdmd_pos};
   std::uint8_t kad_format;
   std::uint16_t asdk_count;
@@ -123,17 +129,23 @@ struct __attribute__((packed)) page_sde {
   static constexpr auto control_lock_pos {0u};
   static constexpr std::byte control_lock_mask {1u << control_lock_pos};
   std::byte flags;
-  static constexpr auto flags_ceem_pos {6u}; // check external encryption mode
+  // check external encryption mode
+  static constexpr auto flags_ceem_pos {6u};
   static constexpr std::byte flags_ceem_mask {3u << flags_ceem_pos};
-  static constexpr auto flags_rdmc_pos {4u}; // raw decryption mode control
+  // raw decryption mode control
+  static constexpr auto flags_rdmc_pos {4u};
   static constexpr std::byte flags_rdmc_mask {3u << flags_rdmc_pos};
-  static constexpr auto flags_sdk_pos {3u}; // supplemental decryption key
+  // supplemental decryption key
+  static constexpr auto flags_sdk_pos {3u};
   static constexpr std::byte flags_sdk_mask {1u << flags_sdk_pos};
-  static constexpr auto flags_ckod_pos {2u}; // clear key on demount
+  // clear key on demount
+  static constexpr auto flags_ckod_pos {2u};
   static constexpr std::byte flags_ckod_mask {1u << flags_ckod_pos};
-  static constexpr auto flags_ckorp_pos {1u}; // clear key on reservation preempt
+  // clear key on reservation preempt
+  static constexpr auto flags_ckorp_pos {1u};
   static constexpr std::byte flags_ckorp_mask {1u << flags_ckorp_pos};
-  static constexpr auto flags_ckorl_pos {0u}; // clear key on reservation loss
+  // clear key on reservation loss
+  static constexpr auto flags_ckorl_pos {0u};
   static constexpr std::byte flags_ckorl_mask {1u << flags_ckorl_pos};
   encrypt_mode encryption_mode;
   decrypt_mode decryption_mode;
@@ -146,10 +158,12 @@ struct __attribute__((packed)) page_sde {
 };
 static_assert(sizeof(page_sde) == 20u);
 
-enum class sde_rdmc: std::uint8_t {
+enum class sde_rdmc : std::uint8_t {
   algorithm_default = 0u << page_sde::flags_rdmc_pos,
-  enabled = 2u << page_sde::flags_rdmc_pos, // corresponds to --unprotect command line option
-  disabled = 3u << page_sde::flags_rdmc_pos, // corresponds to --protect command line option
+  enabled = 2u << page_sde::flags_rdmc_pos,  // corresponds to --unprotect
+                                             // command line option
+  disabled = 3u << page_sde::flags_rdmc_pos, // corresponds to --protect command
+                                             // line option
 };
 
 // next block encryption status page
@@ -159,14 +173,18 @@ struct __attribute__((packed)) page_nbes {
   std::uint64_t logical_object_number;
   std::byte status;
   static constexpr auto status_compression_pos {4u};
-  static constexpr std::byte status_compression_mask {15u << status_compression_pos};
+  static constexpr std::byte status_compression_mask {
+      15u << status_compression_pos};
   static constexpr auto status_encryption_pos {0u};
-  static constexpr std::byte status_encryption_mask {15u << status_encryption_pos};
+  static constexpr std::byte status_encryption_mask {15u
+                                                     << status_encryption_pos};
   std::uint8_t algorithm_index;
   std::byte flags;
-  static constexpr auto flags_emes_pos {1u}; // encryption mode external status
+  // encryption mode external status
+  static constexpr auto flags_emes_pos {1u};
   static constexpr std::byte flags_emes_mask {1u << flags_emes_pos};
-  static constexpr auto flags_rdmds_pos {0u}; // raw decryption mode disabled status
+  // raw decryption mode disabled status
+  static constexpr auto flags_rdmds_pos {0u};
   static constexpr std::byte flags_rdmds_mask {1u << flags_rdmds_pos};
   std::uint8_t kad_format;
   kad kads[];
@@ -178,46 +196,63 @@ struct __attribute__((packed)) algorithm_descriptor {
   std::byte reserved1;
   std::uint16_t length;
   std::byte flags1;
-  static constexpr auto flags1_avfmv_pos {7u}; // algorithm valid for mounted volume
+  // algorithm valid for mounted volume
+  static constexpr auto flags1_avfmv_pos {7u};
   static constexpr std::byte flags1_avfmv_mask {1u << flags1_avfmv_pos};
-  static constexpr auto flags1_sdk_c_pos {6u}; // supplemental decryption key capable
+  // supplemental decryption key capable
+  static constexpr auto flags1_sdk_c_pos {6u};
   static constexpr std::byte flags1_sdk_c_mask {1u << flags1_sdk_c_pos};
-  static constexpr auto flags1_mac_c_pos {5u}; // message authentication code capable
+  // message authentication code capable
+  static constexpr auto flags1_mac_c_pos {5u};
   static constexpr std::byte flags1_mac_c_mask {1u << flags1_mac_c_pos};
-  static constexpr auto flags1_delb_c_pos {4u}; // distinguish encrypted logical block capable
+  // distinguish encrypted logical block capable
+  static constexpr auto flags1_delb_c_pos {4u};
   static constexpr std::byte flags1_delb_c_mask {1u << flags1_delb_c_pos};
-  static constexpr auto flags1_decrypt_c_pos {2u}; // decryption capabilities
+  // decryption capabilities
+  static constexpr auto flags1_decrypt_c_pos {2u};
   static constexpr std::byte flags1_decrypt_c_mask {3u << flags1_decrypt_c_pos};
-  static constexpr auto flags1_encrypt_c_pos {0u}; // encryption capabilities
+  // encryption capabilities
+  static constexpr auto flags1_encrypt_c_pos {0u};
   static constexpr std::byte flags1_encrypt_c_mask {3u << flags1_encrypt_c_pos};
   std::byte flags2;
-  static constexpr auto flags2_avfcp_pos {6u}; // algorithm valid for current logical position
+  // algorithm valid for current logical position
+  static constexpr auto flags2_avfcp_pos {6u};
   static constexpr std::byte flags2_avfcp_mask {3u << flags2_avfcp_pos};
-  static constexpr auto flags2_nonce_pos {4u}; // nonce capabilities
+  // nonce capabilities
+  static constexpr auto flags2_nonce_pos {4u};
   static constexpr std::byte flags2_nonce_mask {3u << flags2_nonce_pos};
-  static constexpr auto flags2_kadf_c_pos {3u}; // KAD format capable
+  // KAD format capable
+  static constexpr auto flags2_kadf_c_pos {3u};
   static constexpr std::byte flags2_kadf_c_mask {1u << flags2_kadf_c_pos};
-  static constexpr auto flags2_vcelb_c_pos {2u}; // volume contains encrypted logical blocks capable
+  // volume contains encrypted logical blocks capable
+  static constexpr auto flags2_vcelb_c_pos {2u};
   static constexpr std::byte flags2_vcelb_c_mask {1u << flags2_vcelb_c_pos};
-  static constexpr auto flags2_ukadf_pos {1u}; // U-KAD fixed
+  // U-KAD fixed
+  static constexpr auto flags2_ukadf_pos {1u};
   static constexpr std::byte flags2_ukadf_mask {1u << flags2_ukadf_pos};
-  static constexpr auto flags2_akadf_pos {0u}; // A-KAD fixed
+  // A-KAD fixed
+  static constexpr auto flags2_akadf_pos {0u};
   static constexpr std::byte flags2_akadf_mask {1u << flags2_akadf_pos};
   std::uint16_t maximum_ukad_length;
   std::uint16_t maximum_akad_length;
   std::uint16_t key_length;
   std::byte flags3;
-  static constexpr auto flags3_dkad_c_pos {6u}; // decryption capabilities
+  // decryption capabilities
+  static constexpr auto flags3_dkad_c_pos {6u};
   static constexpr std::byte flags3_dkad_c_mask {3u << flags3_dkad_c_pos};
-  static constexpr auto flags3_eemc_c_pos {4u}; // external encryption mode control capabilities
+  // external encryption mode control capabilities
+  static constexpr auto flags3_eemc_c_pos {4u};
   static constexpr std::byte flags3_eemc_c_mask {3u << flags3_eemc_c_pos};
-  static constexpr auto flags3_rdmc_c_pos {1u}; // raw decryption mode control capabilities
+  // raw decryption mode control capabilities
+  static constexpr auto flags3_rdmc_c_pos {1u};
   static constexpr std::byte flags3_rdmc_c_mask {7u << flags3_rdmc_c_pos};
-  static constexpr auto flags3_earem_pos {0u}; // encryption algorithm records encryption mode
+  // encryption algorithm records encryption mode
+  static constexpr auto flags3_earem_pos {0u};
   static constexpr std::byte flags3_earem_mask {1u << flags3_earem_pos};
   std::uint8_t maximum_eedk_count;
   static constexpr auto maximum_eedk_count_pos {0u};
-  static constexpr std::uint8_t maximum_eedk_count_mask {15u << maximum_eedk_count_pos};
+  static constexpr std::uint8_t maximum_eedk_count_mask {
+      15u << maximum_eedk_count_pos};
   std::uint16_t msdk_count;
   std::uint16_t maximum_eedk_size;
   std::byte reserved2[2];
@@ -230,9 +265,11 @@ struct __attribute__((packed)) page_dec {
   std::uint16_t page_code;
   std::uint16_t length;
   std::byte flags;
-  static constexpr auto flags_extdecc_pos {2u}; // external data encryption control capable
+  // external data encryption control capable
+  static constexpr auto flags_extdecc_pos {2u};
   static constexpr std::byte flags_extdecc_mask {3u << flags_extdecc_pos};
-  static constexpr auto flags_cfg_p_pos {0u}; // configuration prevented
+  // configuration prevented
+  static constexpr auto flags_cfg_p_pos {0u};
   static constexpr std::byte flags_cfg_p_mask {3u << flags_cfg_p_pos};
   std::byte reserved[15];
   algorithm_descriptor ads[];
@@ -304,22 +341,26 @@ static_assert(sizeof(sense_data) == 18u);
 // std::unique_ptr does not allow construction of fixed-sized arrays
 using sense_buffer = std::array<std::uint8_t, sense_data::maximum_size>;
 
-class scsi_error: public std::runtime_error {
-  public:
-    explicit scsi_error(std::unique_ptr<sense_buffer>&& buf) :
-      sense_buf {std::move(buf)}, std::runtime_error {""} {}
-    const sense_data& get_sense() const { return reinterpret_cast<sense_data&>(*sense_buf->data()); }
+class scsi_error : public std::runtime_error {
+public:
+  explicit scsi_error(std::unique_ptr<sense_buffer>&& buf)
+      : sense_buf {std::move(buf)}, std::runtime_error {""}
+  {}
+  const sense_data& get_sense() const
+  {
+    return reinterpret_cast<sense_data&>(*sense_buf->data());
+  }
 
-  private:
-    std::unique_ptr<sense_buffer> sense_buf;
+private:
+  std::unique_ptr<sense_buffer> sense_buf;
 };
 
 // Extract pointers to kad structures within a variable-length page.
 // Page must have a page_header layout
-template<typename Page>
+template <typename Page>
 std::vector<const kad *> read_page_kads(const Page& page)
 {
-  const auto start {reinterpret_cast<const uint8_t*>(&page)};
+  const auto start {reinterpret_cast<const std::uint8_t *>(&page)};
   auto it {start + sizeof(Page)};
   const auto end {start + ntohs(page.length) + sizeof(page_header)};
   std::vector<const kad *> v {};
@@ -337,25 +378,26 @@ bool is_device_ready(const std::string& device);
 // Get SCSI inquiry data from device
 inquiry_data get_inquiry(const std::string& device);
 // Get data encryption status page
-void get_des(const std::string& device, std::uint8_t *buffer, std::size_t length);
+void get_des(const std::string& device, std::uint8_t *buffer,
+             std::size_t length);
 // Get next block encryption status page
-void get_nbes(const std::string& device, std::uint8_t *buffer, std::size_t length);
+void get_nbes(const std::string& device, std::uint8_t *buffer,
+              std::size_t length);
 // Get device encryption capabilities
-void get_dec(const std::string& device, std::uint8_t *buffer, std::size_t length);
+void get_dec(const std::string& device, std::uint8_t *buffer,
+             std::size_t length);
 // Fill out a set data encryption page with parameters.
 // Result is allocated and returned as a std::unique_ptr and should
 // be sent to the device using scsi::write_sde
-std::unique_ptr<const std::uint8_t[]> make_sde(encrypt_mode enc_mode,
-                                               decrypt_mode dec_mode,
-                                               std::uint8_t algorithm_index,
-                                               const std::vector<std::uint8_t>& key,
-                                               const std::string& key_name,
-                                               sde_rdmc rdmc, bool ckod);
+std::unique_ptr<const std::uint8_t[]>
+make_sde(encrypt_mode enc_mode, decrypt_mode dec_mode,
+         std::uint8_t algorithm_index, const std::vector<std::uint8_t>& key,
+         const std::string& key_name, sde_rdmc rdmc, bool ckod);
 // Write set data encryption parameters to device
 void write_sde(const std::string& device, const std::uint8_t *sde_buffer);
 void print_sense_data(std::ostream& os, const sense_data& sd);
-std::vector<const algorithm_descriptor*> read_algorithms(const page_dec& page);
+std::vector<const algorithm_descriptor *> read_algorithms(const page_dec& page);
 
-}
+} // namespace scsi
 
 #endif
