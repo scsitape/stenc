@@ -94,7 +94,7 @@ static void print_algorithm_name(std::ostream& os, const uint32_t code)
   // Reference: SFSC / INCITS 501-2016
   if (0x80010400 <= code && code <= 0x8001FFFF) {
     os << "Vendor specific 0x" << std::setw(8) << std::setfill('0') << std::hex
-       << code;
+       << code << std::setfill(' ');
   }
   switch (code) {
   case 0x0001000C:
@@ -110,7 +110,8 @@ static void print_algorithm_name(std::ostream& os, const uint32_t code)
     os << "AES-256-XTS-HMAC-SHA-512";
     break;
   default:
-    os << "Unknown 0x" << std::setw(8) << std::setfill('0') << std::hex << code;
+    os << "Unknown 0x" << std::setw(8) << std::setfill('0') << std::hex << code
+       << std::setfill(' ');
   }
 }
 
@@ -145,7 +146,7 @@ static void print_algorithms(std::ostream& os, const scsi::page_dec& page)
       } else {
         os << "maximum ";
       }
-      os << ntohs(ad.maximum_ukad_length) << " bytes\n";
+      os << std::dec << ntohs(ad.maximum_ukad_length) << " bytes\n";
     }
 
     // Print raw decryption mode capability:
@@ -275,7 +276,7 @@ static void print_device_status(std::ostream& os, const scsi::page_des& opt,
     os << std::setw(25) << "Key Instance Counter:" << std::dec
        << ntohl(opt.key_instance_counter) << "\n";
     if (opt.algorithm_index != 0) {
-      os << std::setw(25) << "Encryption Algorithm:" << std::hex
+      os << std::setw(25) << "Encryption Algorithm:" << std::dec
          << static_cast<unsigned int>(opt.algorithm_index) << "\n";
     }
   }
