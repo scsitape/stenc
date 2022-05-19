@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include <string>
 #include <vector>
 
+#include <getopt.h>
 #include <sys/mtio.h>
 #include <sys/stat.h>
 #include <syslog.h>
@@ -42,6 +43,8 @@ GNU General Public License for more details.
 #endif
 
 #include "scsiencrypt.h"
+
+using namespace std::literals::string_literals;
 
 static std::optional<std::vector<std::uint8_t>>
 key_from_hex_chars(const std::string& s)
@@ -72,21 +75,43 @@ key_from_hex_chars(const std::string& s)
 }
 
 // shows the command usage
-static void showUsage()
+static void print_usage(std::ostream& os)
 {
-  std::cerr << "Usage: stenc --version | "
-               "-f <device> [--detail] [-e <on/mixed/rawread/off> [-k <file>] "
-               "[-kd <description>] [-a <index>] [--protect | --unprotect] "
-               "[--ckod] ]\n\n"
-               "Type 'man stenc' for more information.\n";
-}
-
-// exits to shell with an error message
-static void errorOut(const std::string& message)
-{
-  std::cerr << "Error: " << message << "\n";
-  showUsage();
-  exit(EXIT_FAILURE);
+  os << "\
+Usage: stenc [OPTION...]\n\
+\n\
+Mandatory arguments to long options are mandatory for short options too.\n\
+  -f, --file=DEVICE        use DEVICE as the tape drive to operate on\n\
+  -e, --encrypt=ENC-MODE   set encryption mode to ENC-MODE\n\
+  -d, --decrypt=DEC-MODE   set decryption mode to DEC-MODE\n\
+  -k, --key-file=FILE      read encryption key and key descriptor from FILE,\n\
+                           or standard input when FILE is -\n\
+  -a, --algorithm=INDEX    use encryption algorithm INDEX\n\
+      --allow-raw-read     mark written blocks to allow raw reads of\n\
+                           encrypted data\n\
+      --no-allow-raw-read  mark written blocks to disallow raw reads of\n\
+                           encrypted data\n\
+      --ckod               clear key on demount of tape media\n\
+  -h, --help               print this usage statement and exit\n\
+      --version            print version information and exit\n\
+\n\
+ENC-MODE is one of the following:\n\
+  off    Data written to DEVICE will not be encrypted\n\
+  on     Data written to DEVICE will be encrypted\n\
+\n\
+DEC-MODE is one of the following:\n\
+  off    Data read from DEVICE will not be decrypted and only unencrypted\n\
+         records can be read.\n\
+  on     Data read from DEVICE will be decrypted and only encrypted records\n\
+         can be read.\n\
+  mixed  Data read from DEVICE will be decrypted, if needed. Both encrypted\n\
+         and unencrypted records can be read.\n\
+\n\
+INDEX is a number that selects the encryption algorithm and mode to use.\n\
+\n\
+When neither options to set encryption or decryption mode are given, print\n\
+encryption status and capabilities of DEVICE, including a list of supported\n\
+algorithm indexes.\n";
 }
 
 static void print_algorithm_name(std::ostream& os, const uint32_t code)
@@ -194,91 +219,59 @@ static void inquiryDrive(const std::string& tapeDevice)
   print_device_inquiry(std::cout, iresult);
 }
 
-static void print_device_status(std::ostream& os, const scsi::page_des& opt,
-                                bool detail)
+static void print_device_status(std::ostream& os, const scsi::page_des& opt)
 {
-  std::string emode = "unknown";
-  os << std::left << std::setw(25) << "Drive Encryption:";
-  if (opt.encryption_mode == scsi::encrypt_mode::on && // encrypt
-      opt.decryption_mode == scsi::decrypt_mode::on // read only encrypted data
-  ) {
-    emode = "on";
+  os << std::left << std::setw(25) << "Drive Output:";
+  switch (opt.decryption_mode) {
+  case scsi::decrypt_mode::off:
+    os << "Not decrypting\n";
+    os << std::setw(25) << " "
+       << "Raw encrypted data not outputted\n";
+    break;
+  case scsi::decrypt_mode::raw:
+    os << "Not decrypting\n";
+    os << std::setw(25) << " "
+       << "Raw encrypted data outputted\n";
+    break;
+  case scsi::decrypt_mode::on:
+    os << "Decrypting\n";
+    os << std::setw(25) << " "
+       << "Unencrypted data not outputted\n";
+    break;
+  case scsi::decrypt_mode::mixed:
+    os << "Decrypting\n";
+    os << std::setw(25) << " "
+       << "Unencrypted data outputted\n";
+    break;
+  default:
+    os << "Unknown '0x" << std::hex
+       << static_cast<unsigned int>(opt.decryption_mode) << "' \n";
+    break;
   }
-  if (opt.encryption_mode == scsi::encrypt_mode::on && // encrypt
-      opt.decryption_mode ==
-          scsi::decrypt_mode::mixed // read encrypted and unencrypted
-  ) {
-    emode = "mixed";
+  os << std::setw(25) << "Drive Input:";
+  switch (opt.encryption_mode) {
+  case scsi::encrypt_mode::off:
+    os << "Not encrypting\n";
+    break;
+  case scsi::encrypt_mode::on:
+    os << "Encrypting\n";
+    break;
+  default:
+    os << "Unknown result '0x" << std::hex
+       << static_cast<unsigned int>(opt.encryption_mode) << "'\n";
+    break;
+  }
+  if ((opt.flags & scsi::page_des::flags_rdmd_mask) ==
+      scsi::page_des::flags_rdmd_mask) {
+    os << std::setw(25) << " "
+       << "Protecting from raw read\n";
   }
 
-  if (opt.encryption_mode == scsi::encrypt_mode::on && // encrypt
-      opt.decryption_mode ==
-          scsi::decrypt_mode::raw // read encrypted and unencrypted
-  ) {
-    emode = "rawread";
-  }
-
-  if (opt.encryption_mode == scsi::encrypt_mode::off && // encrypt
-      opt.decryption_mode ==
-          scsi::decrypt_mode::off // read encrypted and unencrypted
-  ) {
-    emode = "off";
-  }
-
-  os << emode << "\n";
-  if (detail) {
-    os << std::left << std::setw(25) << "Drive Output:";
-    switch (opt.decryption_mode) {
-    case scsi::decrypt_mode::off:
-      os << "Not decrypting\n";
-      os << std::setw(25) << " "
-         << "Raw encrypted data not outputted\n";
-      break;
-    case scsi::decrypt_mode::raw:
-      os << "Not decrypting\n";
-      os << std::setw(25) << " "
-         << "Raw encrypted data outputted\n";
-      break;
-    case scsi::decrypt_mode::on:
-      os << "Decrypting\n";
-      os << std::setw(25) << " "
-         << "Unencrypted data not outputted\n";
-      break;
-    case scsi::decrypt_mode::mixed:
-      os << "Decrypting\n";
-      os << std::setw(25) << " "
-         << "Unencrypted data outputted\n";
-      break;
-    default:
-      os << "Unknown '0x" << std::hex
-         << static_cast<unsigned int>(opt.decryption_mode) << "' \n";
-      break;
-    }
-    os << std::setw(25) << "Drive Input:";
-    switch (opt.encryption_mode) {
-    case scsi::encrypt_mode::off:
-      os << "Not encrypting\n";
-      break;
-    case scsi::encrypt_mode::on:
-      os << "Encrypting\n";
-      break;
-    default:
-      os << "Unknown result '0x" << std::hex
-         << static_cast<unsigned int>(opt.encryption_mode) << "'\n";
-      break;
-    }
-    if ((opt.flags & scsi::page_des::flags_rdmd_mask) ==
-        scsi::page_des::flags_rdmd_mask) {
-      os << std::setw(25) << " "
-         << "Protecting from raw read\n";
-    }
-
-    os << std::setw(25) << "Key Instance Counter:" << std::dec
-       << ntohl(opt.key_instance_counter) << "\n";
-    if (opt.algorithm_index != 0) {
-      os << std::setw(25) << "Encryption Algorithm:" << std::dec
-         << static_cast<unsigned int>(opt.algorithm_index) << "\n";
-    }
+  os << std::setw(25) << "Key Instance Counter:" << std::dec
+     << ntohl(opt.key_instance_counter) << '\n';
+  if (opt.algorithm_index != 0) {
+    os << std::setw(25) << "Encryption Algorithm:" << std::dec
+       << static_cast<unsigned int>(opt.algorithm_index) << '\n';
   }
   auto kads {scsi::read_page_kads(opt)};
   for (auto kd: kads) {
@@ -299,13 +292,13 @@ static void print_device_status(std::ostream& os, const scsi::page_des& opt,
   }
 }
 
-static void showDriveStatus(const std::string& tapeDrive, bool detail)
+static void showDriveStatus(const std::string& tapeDrive)
 {
   alignas(4) scsi::page_buffer buffer;
   scsi::get_des(tapeDrive, buffer, sizeof(buffer));
   auto& opt {reinterpret_cast<const scsi::page_des&>(buffer)};
 
-  print_device_status(std::cout, opt, detail);
+  print_device_status(std::cout, opt);
 }
 
 static void print_volume_status(std::ostream& os, const scsi::page_nbes& opt)
@@ -403,103 +396,103 @@ static void echo(bool on)
 }
 
 #if !defined(CATCH_CONFIG_MAIN)
-int main(int argc, const char **argv)
+int main(int argc, char **argv)
 {
   std::string tapeDrive;
-  int action = 0; // 0 = status, 1 =setting param, 2 = generating key
-  std::string keyFile, keyDesc;
-  bool detail = false;
+  std::string keyFile;
 
-  scsi::encrypt_mode enc_mode;
-  scsi::decrypt_mode dec_mode;
+  std::optional<scsi::encrypt_mode> enc_mode;
+  std::optional<scsi::decrypt_mode> dec_mode;
   std::uint8_t algorithm_index;
   std::vector<uint8_t> key;
   std::string key_name;
   scsi::sde_rdmc rdmc {};
   bool ckod {};
 
-  // First load all of the options
-  for (int i = 1; i < argc; i++) {
-    std::string thisCmd = argv[i];
-    std::string nextCmd = "";
-    if (i + 1 < argc) {
-      if (strncmp(argv[i + 1], "-", 1) != 0)
-        nextCmd = argv[i + 1];
-    }
-    if (thisCmd == "--version") {
-      std::cout << "stenc v" << VERSION << " - SCSI Tape Encryption Manager\n";
-      std::cout << "https://github.com/scsitape/stenc \n";
-      exit(EXIT_SUCCESS);
-    }
-    if (thisCmd == "-e") {
-      if (nextCmd == "") {
-        errorOut("Key file not specified after -k option");
-      }
-      if (nextCmd == "on") {
-        // encrypt, read only encrypted data
-        enc_mode = scsi::encrypt_mode::on;
+  enum opt_key : int {
+    opt_version = 256,
+    opt_ckod,
+    opt_rdmc_enable,
+    opt_rdmc_disable,
+  };
+
+  const struct option long_options[] = {
+      {"algorithm", required_argument, nullptr, 'a'},
+      {"decrypt", required_argument, nullptr, 'd'},
+      {"encrypt", required_argument, nullptr, 'e'},
+      {"file", required_argument, nullptr, 'f'},
+      {"key-file", required_argument, nullptr, 'k'},
+      {"help", no_argument, nullptr, 'h'},
+      {"ckod", no_argument, nullptr, opt_ckod},
+      {"allow-raw-read", no_argument, nullptr, opt_rdmc_enable},
+      {"no-allow-raw-read", no_argument, nullptr, opt_rdmc_disable},
+      {"version", no_argument, nullptr, opt_version},
+      {nullptr, 0, nullptr, 0},
+  };
+
+  int opt_char;
+  while ((opt_char = getopt_long(argc, argv, "+a:d:e:f:k:h", long_options,
+                                 nullptr)) != -1) {
+    switch (opt_char) {
+    case 'a':
+      algorithm_index = std::atoi(optarg);
+      break;
+    case 'd': {
+      std::string arg {optarg};
+      if (arg == "on"s) {
         dec_mode = scsi::decrypt_mode::on;
-      } else if (nextCmd == "mixed") {
-        // encrypt, read encrypted and unencrypted data
-        enc_mode = scsi::encrypt_mode::on;
-        dec_mode = scsi::decrypt_mode::mixed;
-      } else if (nextCmd == "rawread") {
-        // encrypt, read encrypted and unencrypted data
-        enc_mode = scsi::encrypt_mode::on;
-        dec_mode = scsi::decrypt_mode::raw;
-      } else if (nextCmd == "off") {
-        // encrypt, read encrypted and unencrypted data
-        enc_mode = scsi::encrypt_mode::off;
+      } else if (arg == "off"s) {
         dec_mode = scsi::decrypt_mode::off;
+      } else if (arg == "mixed"s) {
+        dec_mode = scsi::decrypt_mode::mixed;
       } else {
-        errorOut("Unknown encryption mode '" + nextCmd +
-                 "'"); // encrypt, read encrypted and unencrypted data
+        print_usage(std::cerr);
+        exit(EXIT_FAILURE);
       }
-      i++; // skip the next argument
-      action = 1;
-    } else if (thisCmd == "-f") {
-      if (nextCmd == "")
-        errorOut("Device not specified after -f option.");
-      tapeDrive = nextCmd; // set the tape drive
-      i++;                 // skip the next argument
-    } else if (thisCmd == "-k") {
-      if (nextCmd == "")
-        errorOut("Key file not specified after -k option");
-      keyFile = nextCmd; // set the key file
-      i++;               // skip the next argument
-    } else if (thisCmd == "-kd") {
-      if (nextCmd == "")
-        errorOut("Key description not specified after the -kd option");
-      keyDesc = nextCmd; // set the key file
-      if (keyDesc.size() > SSP_UKAD_LENGTH) {
-        errorOut("Key description too long!");
-      }
-      i++; // skip the next argument
-    } else if (thisCmd == "--protect") {
-      if (rdmc == scsi::sde_rdmc::enabled) {
-        errorOut("'--protect' cannot be specified at the same time as "
-                 "'--unprotect'");
-      }
-      rdmc = scsi::sde_rdmc::disabled;
-    } else if (thisCmd == "--unprotect") {
-      if (rdmc == scsi::sde_rdmc::disabled) {
-        errorOut("'--unprotect' cannot be specified at the same time as "
-                 "'--protect'");
-      }
-      rdmc = scsi::sde_rdmc::enabled;
-    } else if (thisCmd == "--ckod") {
-      ckod = true;
-    } else if (thisCmd == "--detail") {
-      detail = true;
-    } else if (thisCmd == "-a") {
-      if (nextCmd == "")
-        errorOut("You must specify a numeric algorithm index when using the -a "
-                 "flag");
-      algorithm_index = std::atoi(nextCmd.c_str());
-      i++; // skip the next argument
-    } else {
-      errorOut("Unknown command '" + thisCmd + "'");
+      break;
     }
+    case 'e': {
+      std::string arg {optarg};
+      if (arg == "on"s) {
+        enc_mode = scsi::encrypt_mode::on;
+      } else if (arg == "off"s) {
+        enc_mode = scsi::encrypt_mode::off;
+      } else {
+        print_usage(std::cerr);
+        exit(EXIT_FAILURE);
+      }
+      break;
+    }
+    case 'f':
+      tapeDrive = optarg;
+      break;
+    case 'k':
+      keyFile = optarg;
+      break;
+    case opt_ckod:
+      ckod = true;
+      break;
+    case opt_rdmc_enable:
+      rdmc = scsi::sde_rdmc::enabled;
+      break;
+    case opt_rdmc_disable:
+      rdmc = scsi::sde_rdmc::disabled;
+      break;
+    case static_cast<int>('h'):
+      print_usage(std::cout);
+      exit(EXIT_SUCCESS);
+    case opt_version:
+      std::cout << "stenc " VERSION " - SCSI Tape Encryption Manager\n"
+                << "https://github.com/scsitape/stenc\n";
+      exit(EXIT_SUCCESS);
+    default:
+      print_usage(std::cerr);
+      exit(EXIT_FAILURE);
+    }
+  }
+  if (optind != argc) { // left-over unparsed arguments or options
+    print_usage(std::cerr);
+    exit(EXIT_FAILURE);
   }
 
   // select device from env variable or system default if not given with -f
@@ -511,23 +504,17 @@ int main(int argc, const char **argv)
       tapeDrive = DEFTAPE;
     }
   }
-  if (dec_mode == scsi::decrypt_mode::raw && rdmc == scsi::sde_rdmc::disabled) {
-    errorOut(
-        "'--protect' is not valid when setting encryption mode to 'rawread'");
-  }
 
   openlog("stenc", LOG_CONS, LOG_USER);
 
-  if (action == 0) {
-    std::cout << "Status for " << tapeDrive << "\n"
+  if (!enc_mode && !dec_mode) {
+    std::cout << "Status for " << tapeDrive << '\n'
               << "--------------------------------------------------\n";
 
     try {
-      if (detail) {
-        inquiryDrive(tapeDrive);
-      }
-      showDriveStatus(tapeDrive, detail);
-      if (detail && scsi::is_device_ready(tapeDrive)) {
+      inquiryDrive(tapeDrive);
+      showDriveStatus(tapeDrive);
+      if (scsi::is_device_ready(tapeDrive)) {
         try {
           showVolumeStatus(tapeDrive);
         } catch (const scsi::scsi_error& err) {
@@ -540,97 +527,104 @@ int main(int argc, const char **argv)
           }
         }
       }
-      if (detail) {
-        alignas(4) scsi::page_buffer buffer {};
-        scsi::get_dec(tapeDrive, buffer, sizeof(buffer));
-        auto& page {reinterpret_cast<const scsi::page_dec&>(buffer)};
+      alignas(4) scsi::page_buffer buffer {};
+      scsi::get_dec(tapeDrive, buffer, sizeof(buffer));
+      auto& page {reinterpret_cast<const scsi::page_dec&>(buffer)};
 
-        print_algorithms(std::cout, page);
-      }
+      print_algorithms(std::cout, page);
       exit(EXIT_SUCCESS);
     } catch (const scsi::scsi_error& err) {
       scsi::print_sense_data(std::cerr, err.get_sense());
       exit(EXIT_FAILURE);
     } catch (const std::runtime_error& err) {
-      std::cerr << err.what() << '\n';
+      std::cerr << "stenc: " << err.what() << '\n';
       exit(EXIT_FAILURE);
     }
   }
 
-  if (enc_mode == scsi::encrypt_mode::on) {
-    if (keyFile.empty()) {
-      std::string p1;
-      std::string p2;
-      bool done = false;
-      while (!done) {
-        std::cout << "Enter key in hex format: ";
-        echo(false);
-        getline(std::cin, p1);
-        echo(true);
-        std::cout << "\nRe-enter key in hex format: ";
-        echo(false);
-        getline(std::cin, p2);
-        echo(true);
-        std::cout << "\n";
-        if (p1 != p2) {
-          std::cout << "Keys do not match!\n";
-        } else if (p1.empty()) {
-          std::cout << "Key cannot be empty!\n";
-        } else {
-          if (auto key_bytes = key_from_hex_chars(p1)) {
-            std::cout << "Set encryption using this key? [y/n]: ";
-            std::string ans = "";
-            getline(std::cin, ans);
-            if (ans == "y") {
-              key = *key_bytes;
-              done = true;
-            }
-          } else {
-            std::cout << "Invalid key!\n";
-          }
-        }
-      }
-      key_name = keyDesc;
+  // Infer encrypt/decrypt mode when only one is specified
+  if (enc_mode && !dec_mode) {
+    if (enc_mode == scsi::encrypt_mode::off) {
+      dec_mode = scsi::decrypt_mode::off;
+      std::cerr << "Decrypt mode not specified, using decrypt = off\n";
+    } else if (enc_mode == scsi::encrypt_mode::on) {
+      dec_mode = scsi::decrypt_mode::on;
+      std::cerr << "Decrypt mode not specified, using decrypt = on\n";
     } else {
-      // set keyInput here
-      std::string keyInput;
-      std::ifstream myfile(keyFile.c_str());
-      if (myfile.is_open()) {
-        getline(myfile, keyInput);
-        getline(myfile, keyDesc);
-        myfile.close();
-        if (auto key_bytes = key_from_hex_chars(keyInput)) {
-          key = *key_bytes;
-        } else {
-          errorOut("Invalid key found in '" + keyFile + "'");
-        }
-        key_name = keyDesc;
-      } else
-        errorOut("Could not open '" + keyFile + "' for reading");
+      std::cerr << "stenc: Unexpected encrypt mode "
+                << static_cast<unsigned int>(*enc_mode) << '\n';
+      exit(EXIT_FAILURE);
+    }
+  } else if (!enc_mode && dec_mode) {
+    if (dec_mode == scsi::decrypt_mode::off) {
+      enc_mode = scsi::encrypt_mode::off;
+      std::cerr << "Encrypt mode not specified, using encrypt = off\n";
+    } else if (dec_mode == scsi::decrypt_mode::on ||
+               dec_mode == scsi::decrypt_mode::mixed) {
+      enc_mode = scsi::encrypt_mode::on;
+      std::cerr << "Encrypt mode not specified, using encrypt = on\n";
+    } else {
+      std::cerr << "stenc: Unexpected decrypt mode "
+                << static_cast<unsigned int>(*dec_mode) << '\n';
+      exit(EXIT_FAILURE);
     }
   }
 
+  if (enc_mode != scsi::encrypt_mode::off ||
+      dec_mode != scsi::decrypt_mode::off) {
+    if (keyFile.empty()) {
+      std::cerr << "stenc: Encryption key required but no key file specified\n";
+      exit(EXIT_FAILURE);
+    }
+
+    // set keyInput here
+    std::string keyInput;
+
+    if (keyFile == "-"s) { // Read key file from standard input
+      if (isatty(STDIN_FILENO)) {
+        std::cout << "Enter key (input will be hidden): ";
+        echo(false);
+      }
+      std::getline(std::cin, keyInput);
+      if (isatty(STDIN_FILENO)) {
+        std::cout << "\nEnter key descriptor (optional): ";
+        echo(true);
+      }
+      std::getline(std::cin, key_name);
+    } else {
+      std::ifstream myfile {keyFile};
+      if (!myfile.is_open()) {
+        std::cerr << "stenc: Cannot open " << keyFile << ": " << strerror(errno)
+                  << '\n';
+        exit(EXIT_FAILURE);
+      }
+      std::getline(myfile, keyInput);
+      std::getline(myfile, key_name);
+    }
+
+    if (auto key_bytes = key_from_hex_chars(keyInput)) {
+      key = *key_bytes;
+    } else {
+      std::cerr << "stenc: Invalid key in key file\n";
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  if (enc_mode != scsi::encrypt_mode::on) {
+    key_name.erase(); // key descriptor only valid when key is used for writing
+  }
+
   // Write the options to the tape device
-  std::cout << "Turning "
-            << (enc_mode != scsi::encrypt_mode::off ? "on" : "off")
-            << " encryption on device '" << tapeDrive << "'..." << std::endl;
+  std::cerr << "Changing encryption settings on device " << tapeDrive << '\n';
   try {
-    auto sde_buffer {scsi::make_sde(enc_mode, dec_mode, algorithm_index, key,
-                                    key_name, rdmc, ckod)};
+    auto sde_buffer {scsi::make_sde(enc_mode.value(), dec_mode.value(),
+                                    algorithm_index, key, key_name, rdmc,
+                                    ckod)};
     scsi::write_sde(tapeDrive, sde_buffer.get());
 
     alignas(4) scsi::page_buffer buffer {};
     scsi::get_des(tapeDrive, buffer, sizeof(buffer));
     auto& opt {reinterpret_cast<const scsi::page_des&>(buffer)};
-
-    if (enc_mode != scsi::encrypt_mode::off &&
-        opt.encryption_mode == scsi::encrypt_mode::off) {
-      errorOut("Turning encryption on for '" + tapeDrive + "' failed!");
-    }
-    if (enc_mode == scsi::encrypt_mode::off &&
-        opt.encryption_mode != scsi::encrypt_mode::off) {
-      errorOut("Turning encryption off for '" + tapeDrive + "' failed!");
-    }
 
     if (enc_mode != scsi::encrypt_mode::off) {
       std::stringstream msg;
@@ -651,18 +645,13 @@ int main(int argc, const char **argv)
 
       syslog(LOG_NOTICE, "%s", msg.str().c_str());
     }
-    std::cout << "Success! See system logs for a key change audit log.\n";
-    exit(EXIT_SUCCESS);
+    std::cerr << "Success! See system logs for a key change audit log.\n";
   } catch (const scsi::scsi_error& err) {
     scsi::print_sense_data(std::cerr, err.get_sense());
+    exit(EXIT_FAILURE);
   } catch (const std::runtime_error& err) {
-    std::cerr << err.what() << '\n';
-  }
-
-  if (enc_mode != scsi::encrypt_mode::off) {
-    errorOut("Turning encryption on for '" + tapeDrive + "' failed!");
-  } else {
-    errorOut("Turning encryption off for '" + tapeDrive + "' failed!");
+    std::cerr << "stenc: " << err.what() << '\n';
+    exit(EXIT_FAILURE);
   }
 }
 #endif // defined(CATCH_CONFIG_MAIN)
