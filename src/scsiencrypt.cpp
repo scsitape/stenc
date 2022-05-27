@@ -250,7 +250,8 @@ make_sde(encrypt_mode enc_mode, decrypt_mode dec_mode,
   page.length = htons(length - sizeof(page_header));
   page.control = std::byte {2u}
                  << page_sde::control_scope_pos; // all IT nexus = 10b
-  page.flags |= std::byte {DEFAULT_CEEM} << page_sde::flags_ceem_pos;
+  // no external encryption mode check for widest compatibility of reads
+  page.flags |= std::byte {1u} << page_sde::flags_ceem_pos;
   page.flags |= std::byte {static_cast<std::underlying_type_t<sde_rdmc>>(rdmc)};
   if (ckod) {
     page.flags |= page_sde::flags_ckod_mask;

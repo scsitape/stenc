@@ -22,7 +22,7 @@ TEST_CASE("Disable encryption command", "[scsi]")
     0x00, 0x10, // page code
     0x00, 0x10, // page length
     0x40, // scope
-    DEFAULT_CEEM << 6, // CEEM, CKOD, RDMC, et al.
+    0x40, // CEEM, CKOD, RDMC, et al.
     0x00, // encyption mode
     0x00, // decryption mode
     0x01, // algorithm index
@@ -50,7 +50,7 @@ TEST_CASE("Enable encryption command", "[scsi]")
     0x00, 0x10, // page code
     0x00, 0x30, // page length
     0x40, // scope
-    DEFAULT_CEEM << 6, // CEEM, CKOD, RDMC, et al.
+    0x40, // CEEM, CKOD, RDMC, et al.
     0x02, // encyption mode
     0x02, // decryption mode
     0x01, // algorithm index
@@ -86,7 +86,7 @@ TEST_CASE("Enable encryption command with options", "[scsi]")
     0x00, 0x10, // page code
     0x00, 0x30, // page length
     0x40, // scope
-    DEFAULT_CEEM << 6 | 0x24, // CEEM, CKOD, RDMC, et al.
+    0x64, // CEEM, CKOD, RDMC, et al.
     0x02, // encyption mode
     0x02, // decryption mode
     0x01, // algorithm index
@@ -122,7 +122,7 @@ TEST_CASE("Enable encryption command with key name", "[scsi]")
     0x00, 0x10, // page code
     0x00, 0x40, // page length
     0x40, // scope
-    DEFAULT_CEEM << 6, // CEEM, CKOD, RDMC, et al.
+    0x40, // CEEM, CKOD, RDMC, et al.
     0x02, // encyption mode
     0x02, // decryption mode
     0x01, // algorithm index
