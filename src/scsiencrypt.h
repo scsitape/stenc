@@ -344,7 +344,7 @@ using sense_buffer = std::array<std::uint8_t, sense_data::maximum_size>;
 class scsi_error : public std::runtime_error {
 public:
   explicit scsi_error(std::unique_ptr<sense_buffer>&& buf)
-      : sense_buf {std::move(buf)}, std::runtime_error {""}
+      : sense_buf {std::move(buf)}, std::runtime_error {"SCSI I/O error"}
   {}
   const sense_data& get_sense() const
   {

@@ -148,7 +148,8 @@ static void print_algorithms(std::ostream& os, const scsi::page_dec& page)
 
   for (auto ad_ptr: algorithms) {
     auto& ad {*ad_ptr};
-    os << std::left << std::setw(5) << (unsigned int) {ad.algorithm_index};
+    os << std::left << std::setw(5)
+       << static_cast<unsigned int>(ad.algorithm_index);
     print_algorithm_name(os, ntohl(ad.security_algorithm_code));
     os.put('\n');
 
@@ -304,13 +305,12 @@ static void showDriveStatus(const std::string& tapeDrive)
 static void print_volume_status(std::ostream& os, const scsi::page_nbes& opt)
 {
   auto compression_status {static_cast<std::uint8_t>(
-      (opt.status & scsi::page_nbes::status_compression_mask) >>
-      scsi::page_nbes::status_compression_pos)};
+      opt.status & scsi::page_nbes::status_compression_mask)};
   // From vendor docs, no known drives actually report anything other than 0
   if (compression_status != 0u) {
     os << std::left << std::setw(25) << "Volume Compressed:";
     switch (compression_status) {
-    case 0u:
+    case 0u << scsi::page_nbes::status_compression_pos:
       os << "Drive cannot determine\n";
       break;
     default:
@@ -321,28 +321,27 @@ static void print_volume_status(std::ostream& os, const scsi::page_nbes& opt)
   }
   os << std::left << std::setw(25) << "Volume Encryption:";
   auto encryption_status {static_cast<std::uint8_t>(
-      (opt.status & scsi::page_nbes::status_encryption_mask) >>
-      scsi::page_nbes::status_encryption_pos)};
+      opt.status & scsi::page_nbes::status_encryption_mask)};
   auto kads {read_page_kads(opt)};
   switch (encryption_status) {
-  case 0u:
-  case 1u:
+  case 0u << scsi::page_nbes::status_encryption_pos:
+  case 1u << scsi::page_nbes::status_encryption_pos:
     os << "Unable to determine\n";
     break;
-  case 2u:
+  case 2u << scsi::page_nbes::status_encryption_pos:
     os << "Tape position not at a logical block\n";
     break;
-  case 3u:
+  case 3u << scsi::page_nbes::status_encryption_pos:
     os << "Not encrypted\n";
     break;
-  case 5u:
+  case 5u << scsi::page_nbes::status_encryption_pos:
     os << "Encrypted and able to decrypt\n";
     if ((opt.flags & scsi::page_nbes::flags_rdmds_mask) ==
         scsi::page_nbes::flags_rdmds_mask) {
       os << std::left << std::setw(25) << " Protected from raw read\n";
     }
     break;
-  case 6u:
+  case 6u << scsi::page_nbes::status_encryption_pos:
     os << "Encrypted, but unable to decrypt due to invalid key.\n";
     for (auto kd: kads) {
       switch (kd->type) {
@@ -373,7 +372,7 @@ static void print_volume_status(std::ostream& os, const scsi::page_nbes& opt)
   if (opt.algorithm_index != 0) {
     os << std::left << std::setw(25)
        << "Volume Algorithm:" << static_cast<unsigned int>(opt.algorithm_index)
-       << "\n";
+       << '\n';
   }
 }
 
@@ -534,6 +533,7 @@ int main(int argc, char **argv)
       print_algorithms(std::cout, page);
       exit(EXIT_SUCCESS);
     } catch (const scsi::scsi_error& err) {
+      std::cerr << "stenc: " << err.what() << '\n';
       scsi::print_sense_data(std::cerr, err.get_sense());
       exit(EXIT_FAILURE);
     } catch (const std::runtime_error& err) {
@@ -633,7 +633,7 @@ int main(int argc, char **argv)
         msg << "Key Descriptor: '" << key_name << "'";
       }
       msg << " Key Instance: " << std::dec << ntohl(opt.key_instance_counter)
-          << std::endl;
+          << '\n';
 
       syslog(LOG_NOTICE, "%s", msg.str().c_str());
     } else {
@@ -641,12 +641,13 @@ int main(int argc, char **argv)
 
       msg << "Encryption turned off for device '" << tapeDrive << "'.";
       msg << " Key Instance: " << std::dec << ntohl(opt.key_instance_counter)
-          << std::endl;
+          << '\n';
 
       syslog(LOG_NOTICE, "%s", msg.str().c_str());
     }
     std::cerr << "Success! See system logs for a key change audit log.\n";
   } catch (const scsi::scsi_error& err) {
+    std::cerr << "stenc: " << err.what() << '\n';
     scsi::print_sense_data(std::cerr, err.get_sense());
     exit(EXIT_FAILURE);
   } catch (const std::runtime_error& err) {
