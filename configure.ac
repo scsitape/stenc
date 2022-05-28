@@ -31,28 +31,11 @@ AC_ARG_WITH([scsi-debug],
 	     AC_MSG_RESULT(yes)],
 	    [AC_MSG_RESULT(no)])
 
-AC_MSG_CHECKING(max tape read blocks for volume status)
-AC_ARG_WITH([max-tape-read-blocks],
-            [AS_HELP_STRING([--with-max-tape-read-blocks=<number>],[how many blocks the tape drive will seek to determine the encryption status on the volume.  Defaults to 100])],
-	    [AC_DEFINE_UNQUOTED([MAX_TAPE_READ_BLOCKS],$withval,"") AC_MSG_RESULT($withval)],
-	    [AC_DEFINE([MAX_TAPE_READ_BLOCKS],100,"") AC_MSG_RESULT(100)])
-
 AC_MSG_CHECKING(default encryption algorithm index to use)
 AC_ARG_WITH([default-algorithm],
             [AS_HELP_STRING([--with-default-algorithm=<number>],[the default algorithm index to set for encryption.  Defaults to 0])],
 	    [AC_DEFINE_UNQUOTED([DEFAULT_ALGORITHM],$withval,"") AC_MSG_RESULT($withval)],
 	    [AC_DEFINE([DEFAULT_ALGORITHM],0,"") AC_MSG_RESULT(0)])
-
-AC_MSG_CHECKING(default CEEM flag to use)
-AC_ARG_WITH([default-ceem],
-            [AS_HELP_STRING([--with-default-ceem=<number>],[the default CEEM flag when setting options.  Defaults to 0])],
-	    [AC_DEFINE_UNQUOTED([DEFAULT_CEEM],$withval,"") AC_MSG_RESULT($withval)],
-	    [AC_DEFINE([DEFAULT_CEEM],0,"") AC_MSG_RESULT(0)])
-AC_MSG_CHECKING(default key size to use)
-AC_ARG_WITH([default-key-size],
-            [AS_HELP_STRING([--with-default-key-size=<bytes>],[the default key size for your drive.  Only used when turning off encryption.  Defaults to 32 (256 bit)])],
-	    [AC_DEFINE_UNQUOTED([DEFAULT_KEYSIZE],$withval,"") AC_MSG_RESULT($withval)],
-	    [AC_DEFINE([DEFAULT_KEYSIZE],32,"") AC_MSG_RESULT(32)])
 
 AC_MSG_CHECKING(your OS)
 system=`uname`
