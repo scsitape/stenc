@@ -62,13 +62,12 @@ TEST_CASE("SCSI get device encryption status output 1", "[output]")
       0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   };
   const std::string expected_output {"\
-Drive Encryption:        off\n\
 Drive Output:            Not decrypting\n\
                          Raw encrypted data not outputted\n\
 Drive Input:             Not encrypting\n\
 Key Instance Counter:    0\n"s};
   std::ostringstream oss;
-  print_device_status(oss, reinterpret_cast<const scsi::page_des&>(page), true);
+  print_device_status(oss, reinterpret_cast<const scsi::page_des&>(page));
   REQUIRE(oss.str() == expected_output);
 }
 
@@ -81,7 +80,6 @@ TEST_CASE("SCSI get device encryption status output 2", "[output]")
       0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, 0x21,
   };
   const std::string expected_output {"\
-Drive Encryption:        on\n\
 Drive Output:            Decrypting\n\
                          Unencrypted data not outputted\n\
 Drive Input:             Encrypting\n\
@@ -89,7 +87,7 @@ Key Instance Counter:    1\n\
 Encryption Algorithm:    1\n\
 Drive Key Desc.(uKAD):   Hello world!\n"s};
   std::ostringstream oss;
-  print_device_status(oss, reinterpret_cast<const scsi::page_des&>(page), true);
+  print_device_status(oss, reinterpret_cast<const scsi::page_des&>(page));
   REQUIRE(oss.str() == expected_output);
 }
 

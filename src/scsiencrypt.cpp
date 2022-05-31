@@ -303,6 +303,9 @@ void print_sense_data(std::ostream& os, const sense_data& sd)
   case sense_data::no_sense:
     os << "No specific error";
     break;
+  case sense_data::recovered_error:
+    os << "Recovered error";
+    break;
   case sense_data::not_ready:
     os << "Device not ready";
     break;
@@ -329,10 +332,10 @@ void print_sense_data(std::ostream& os, const sense_data& sd)
   os << " (0x" << HEX(sense_key) << ")\n";
 
   os << std::left << std::setw(25) << " ASC:"
-     << "0x" << HEX(sd.additional_sense_code) << "\n";
+     << "0x" << HEX(sd.additional_sense_code) << '\n';
 
   os << std::left << std::setw(25) << " ASCQ:"
-     << "0x" << HEX(sd.additional_sense_qualifier) << "\n";
+     << "0x" << HEX(sd.additional_sense_qualifier) << '\n';
 
   if (sd.additional_sense_length > 0) {
     os << std::left << std::setw(25) << " Additional data: "
@@ -341,7 +344,7 @@ void print_sense_data(std::ostream& os, const sense_data& sd)
     for (int i = 0; i < sd.additional_sense_length; i++) {
       os << HEX(sd.additional_sense_bytes[i]);
     }
-    os << "\n";
+    os << '\n';
   }
 #ifdef DEBUGSCSI
   os << std::left << std::setw(25) << " Raw Sense:"
@@ -351,7 +354,7 @@ void print_sense_data(std::ostream& os, const sense_data& sd)
   for (int i = 0; i < sense_data::maximum_size; i++) {
     os << HEX(rawsense[i]);
   }
-  os << "\n";
+  os << '\n';
 #endif
 }
 
