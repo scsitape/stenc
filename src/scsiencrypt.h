@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <vector>
 
@@ -35,7 +36,6 @@ GNU General Public License for more details.
 #endif
 
 constexpr std::size_t SSP_PAGE_ALLOCATION = 8192;
-constexpr std::size_t SSP_UKAD_LENGTH = 0x1e;
 
 // outputs hex in a 2 digit pair
 #define HEX(x)                                                                 \
@@ -50,12 +50,38 @@ enum class encrypt_mode : std::uint8_t {
   on = 2u,
 };
 
+inline std::ostream& operator<<(std::ostream& os, encrypt_mode m)
+{
+  if (m == encrypt_mode::off) {
+    os << "off";
+  } else if (m == encrypt_mode::external) {
+    os << "external";
+  } else {
+    os << "on";
+  }
+  return os;
+}
+
 enum class decrypt_mode : std::uint8_t {
   off = 0u,
   raw = 1u,
   on = 2u,
   mixed = 3u,
 };
+
+inline std::ostream& operator<<(std::ostream& os, decrypt_mode m)
+{
+  if (m == decrypt_mode::off) {
+    os << "off";
+  } else if (m == decrypt_mode::raw) {
+    os << "raw";
+  } else if (m == decrypt_mode::on) {
+    os << "on";
+  } else {
+    os << "mixed";
+  }
+  return os;
+}
 
 enum class kad_type : std::uint8_t {
   ukad = 0u,  // unauthenticated key-associated data
