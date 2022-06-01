@@ -208,11 +208,10 @@ TEST_CASE("Interpret device encryption status page", "[scsi]")
 
   auto kads = read_page_kads(page_des);
   REQUIRE(kads.size() == 1u);
-  REQUIRE((kads[0]->flags & scsi::kad::flags_authenticated_mask) ==
-          std::byte {1u});
-  REQUIRE(ntohs(kads[0]->length) == std::strlen("Hello world!"));
-  REQUIRE(std::memcmp(kads[0]->descriptor, "Hello world!",
-                      ntohs(kads[0]->length)) == 0);
+  const scsi::kad& kd = kads[0];
+  REQUIRE((kd.flags & scsi::kad::flags_authenticated_mask) == std::byte {1u});
+  REQUIRE(ntohs(kd.length) == std::strlen("Hello world!"));
+  REQUIRE(std::memcmp(kd.descriptor, "Hello world!", ntohs(kd.length)) == 0);
 }
 
 TEST_CASE("Interpret next block encryption status page", "[scsi]")
@@ -248,11 +247,10 @@ TEST_CASE("Interpret next block encryption status page", "[scsi]")
 
   auto kads = read_page_kads(page_nbes);
   REQUIRE(kads.size() == 1u);
-  REQUIRE((kads[0]->flags & scsi::kad::flags_authenticated_mask) ==
-          std::byte {1u});
-  REQUIRE(ntohs(kads[0]->length) == std::strlen("Hello world!"));
-  REQUIRE(std::memcmp(kads[0]->descriptor, "Hello world!",
-                      ntohs(kads[0]->length)) == 0);
+  const scsi::kad& kd = kads[0];
+  REQUIRE((kd.flags & scsi::kad::flags_authenticated_mask) == std::byte {1u});
+  REQUIRE(ntohs(kd.length) == std::strlen("Hello world!"));
+  REQUIRE(std::memcmp(kd.descriptor, "Hello world!", ntohs(kd.length)) == 0);
 }
 
 TEST_CASE("Interpret data encryption capabilties page", "[scsi]")
@@ -311,7 +309,7 @@ TEST_CASE("Interpret data encryption capabilties page", "[scsi]")
   auto algorithms {read_algorithms(page_dec)};
   REQUIRE(algorithms.size() == 2u);
 
-  auto& algo1 {*algorithms[0]};
+  const scsi::algorithm_descriptor& algo1 = algorithms[0];
   REQUIRE(algo1.algorithm_index == 1u);
   REQUIRE(ntohs(algo1.length) == 20u);
   REQUIRE((algo1.flags1 & scsi::algorithm_descriptor::flags1_avfmv_mask) ==
@@ -359,7 +357,7 @@ TEST_CASE("Interpret data encryption capabilties page", "[scsi]")
   REQUIRE(ntohs(algo1.maximum_eedk_size) == 0u);
   REQUIRE(ntohl(algo1.security_algorithm_code) == 0x00010014u);
 
-  auto& algo2 {*algorithms[1]};
+  const scsi::algorithm_descriptor& algo2 = algorithms[1];
   REQUIRE(algo2.algorithm_index == 2u);
   REQUIRE(ntohs(algo2.length) == 20u);
   REQUIRE((algo2.flags1 & scsi::algorithm_descriptor::flags1_avfmv_mask) ==

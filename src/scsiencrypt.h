@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include <bitset>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <ostream>
 #include <string>
@@ -384,16 +385,16 @@ private:
 // Extract pointers to kad structures within a variable-length page.
 // Page must have a page_header layout
 template <typename Page>
-std::vector<const kad *> read_page_kads(const Page& page)
+std::vector<std::reference_wrapper<const kad>> read_page_kads(const Page& page)
 {
   const auto start {reinterpret_cast<const std::uint8_t *>(&page)};
   auto it {start + sizeof(Page)};
   const auto end {start + ntohs(page.length) + sizeof(page_header)};
-  std::vector<const kad *> v {};
+  std::vector<std::reference_wrapper<const kad>> v {};
 
   while (it < end) {
     auto elem {reinterpret_cast<const kad *>(it)};
-    v.push_back(elem);
+    v.push_back(std::cref(*elem));
     it += ntohs(elem->length) + sizeof(kad);
   }
   return v;
@@ -422,7 +423,8 @@ make_sde(encrypt_mode enc_mode, decrypt_mode dec_mode,
 // Write set data encryption parameters to device
 void write_sde(const std::string& device, const std::uint8_t *sde_buffer);
 void print_sense_data(std::ostream& os, const sense_data& sd);
-std::vector<const algorithm_descriptor *> read_algorithms(const page_dec& page);
+std::vector<std::reference_wrapper<const algorithm_descriptor>>
+read_algorithms(const page_dec& page);
 
 } // namespace scsi
 

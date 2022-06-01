@@ -148,8 +148,7 @@ static void print_algorithms(std::ostream& os, const scsi::page_dec& page)
 
   os << "Supported algorithms:\n";
 
-  for (auto ad_ptr: algorithms) {
-    auto& ad {*ad_ptr};
+  for (const scsi::algorithm_descriptor& ad: algorithms) {
     os << std::left << std::setw(5)
        << static_cast<unsigned int>(ad.algorithm_index);
     print_algorithm_name(os, ntohl(ad.security_algorithm_code));
@@ -270,18 +269,16 @@ static void print_device_status(std::ostream& os, const scsi::page_des& opt)
        << static_cast<unsigned int>(opt.algorithm_index) << '\n';
   }
   auto kads {scsi::read_page_kads(opt)};
-  for (auto kd: kads) {
-    switch (kd->type) {
+  for (const scsi::kad& kd: kads) {
+    switch (kd.type) {
     case scsi::kad_type::ukad:
       os << std::setw(25) << "Drive Key Desc.(uKAD): ";
-      os.write(reinterpret_cast<const char *>(kd->descriptor),
-               ntohs(kd->length));
+      os.write(reinterpret_cast<const char *>(kd.descriptor), ntohs(kd.length));
       os.put('\n');
       break;
     case scsi::kad_type::akad:
       os << std::setw(25) << "Drive Key Desc.(aKAD): ";
-      os.write(reinterpret_cast<const char *>(kd->descriptor),
-               ntohs(kd->length));
+      os.write(reinterpret_cast<const char *>(kd.descriptor), ntohs(kd.length));
       os.put('\n');
       break;
     }
@@ -329,18 +326,18 @@ static void print_volume_status(std::ostream& os, const scsi::page_nbes& opt)
     break;
   case 6u << scsi::page_nbes::status_encryption_pos:
     os << "Encrypted, but unable to decrypt due to invalid key.\n";
-    for (auto kd: kads) {
-      switch (kd->type) {
+    for (const scsi::kad& kd: kads) {
+      switch (kd.type) {
       case scsi::kad_type::ukad:
         os << std::setw(25) << "Volume Key Desc.(uKAD): ";
-        os.write(reinterpret_cast<const char *>(kd->descriptor),
-                 ntohs(kd->length));
+        os.write(reinterpret_cast<const char *>(kd.descriptor),
+                 ntohs(kd.length));
         os.put('\n');
         break;
       case scsi::kad_type::akad:
         os << std::setw(25) << "Volume Key Desc.(aKAD): ";
-        os.write(reinterpret_cast<const char *>(kd->descriptor),
-                 ntohs(kd->length));
+        os.write(reinterpret_cast<const char *>(kd.descriptor),
+                 ntohs(kd.length));
         os.put('\n');
         break;
       }
@@ -599,13 +596,12 @@ int main(int argc, char **argv)
     if (algorithm_index == std::nullopt) {
       if (algorithms.size() == 1) {
         // Pick the only available algorithm if not specified
+        const scsi::algorithm_descriptor& ad = algorithms[0];
         std::cerr << "Algorithm index not specified, using " << std::dec
-                  << static_cast<unsigned int>(algorithms[0]->algorithm_index)
-                  << " (";
-        print_algorithm_name(std::cerr,
-                             ntohl(algorithms[0]->security_algorithm_code));
+                  << static_cast<unsigned int>(ad.algorithm_index) << " (";
+        print_algorithm_name(std::cerr, ntohl(ad.security_algorithm_code));
         std::cerr << ")\n";
-        algorithm_index = algorithms[0]->algorithm_index;
+        algorithm_index = ad.algorithm_index;
       } else {
         std::cerr << "stenc: Algorithm index not specified\n";
         print_algorithms(std::cerr, dec_page);
@@ -613,39 +609,39 @@ int main(int argc, char **argv)
       }
     }
 
-    auto algo_it {std::find_if(algorithms.begin(), algorithms.end(),
-                               [algorithm_index](auto adp) {
-                                 return adp->algorithm_index == algorithm_index;
-                               })};
+    auto algo_it {
+        std::find_if(algorithms.begin(), algorithms.end(),
+                     [algorithm_index](const scsi::algorithm_descriptor& ad) {
+                       return ad.algorithm_index == algorithm_index;
+                     })};
     if (algo_it == algorithms.end()) {
       std::cerr << "stenc: Algorithm index " << std::dec
                 << static_cast<unsigned int>(*algorithm_index)
                 << " not supported by device\n";
       std::exit(EXIT_FAILURE);
     }
-    auto& algo {**algo_it};
+    const scsi::algorithm_descriptor& ad = *algo_it;
 
     if ((enc_mode != scsi::encrypt_mode::off ||
          dec_mode != scsi::decrypt_mode::off) &&
-        key.size() != ntohs(algo.key_length)) {
+        key.size() != ntohs(ad.key_length)) {
       std::cerr << "stenc: Incorrect key size, expected " << std::dec
-                << ntohs(algo.key_length) << " bytes, got " << key.size()
-                << '\n';
+                << ntohs(ad.key_length) << " bytes, got " << key.size() << '\n';
       std::exit(EXIT_FAILURE);
     }
 
-    if (key_name.size() > ntohs(algo.maximum_ukad_length)) {
+    if (key_name.size() > ntohs(ad.maximum_ukad_length)) {
       std::cerr << "stenc: Key descriptor exceeds maximum length " << std::dec
-                << ntohs(algo.maximum_ukad_length) << '\n';
+                << ntohs(ad.maximum_ukad_length) << '\n';
       std::exit(EXIT_FAILURE);
     }
 
     bool ukad_fixed =
-        (algo.flags2 & scsi::algorithm_descriptor::flags2_ukadf_mask) ==
+        (ad.flags2 & scsi::algorithm_descriptor::flags2_ukadf_mask) ==
         scsi::algorithm_descriptor::flags2_ukadf_mask;
-    if (ukad_fixed && key_name.size() < ntohs(algo.maximum_ukad_length)) {
+    if (ukad_fixed && key_name.size() < ntohs(ad.maximum_ukad_length)) {
       // Pad key descriptor to required length
-      key_name.resize(ntohs(algo.maximum_ukad_length), ' ');
+      key_name.resize(ntohs(ad.maximum_ukad_length), ' ');
     }
 
     if (enc_mode != scsi::encrypt_mode::on) {
