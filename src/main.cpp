@@ -659,6 +659,11 @@ int main(int argc, char **argv)
       }
     }
 
+    if (ckod && !scsi::is_device_ready(tapeDrive)) {
+      std::cerr << "stenc: Cannot use --ckod when no tape media is loaded\n";
+      exit(EXIT_FAILURE);
+    }
+
     // Write the options to the tape device
     std::cerr << "Changing encryption settings for device " << tapeDrive
               << "...\n";
