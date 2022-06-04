@@ -631,8 +631,8 @@ int main(int argc, char **argv)
     }
 
     if (key_name.size() > ntohs(ad.maximum_ukad_length)) {
-      std::cerr << "stenc: Key descriptor exceeds maximum length of " << std::dec
-                << ntohs(ad.maximum_ukad_length) << " bytes\n";
+      std::cerr << "stenc: Key descriptor exceeds maximum length of "
+                << std::dec << ntohs(ad.maximum_ukad_length) << " bytes\n";
       std::exit(EXIT_FAILURE);
     }
 
@@ -647,6 +647,16 @@ int main(int argc, char **argv)
     if (enc_mode != scsi::encrypt_mode::on) {
       // key descriptor only valid when key is used for writing
       key_name.erase();
+    }
+
+    if (rdmc != scsi::sde_rdmc {}) {
+      auto rdmc_c {static_cast<unsigned int>(
+          ad.flags3 & scsi::algorithm_descriptor::flags3_rdmc_c_mask)};
+      if (rdmc_c == 6u << scsi::algorithm_descriptor::flags3_rdmc_c_pos ||
+          rdmc_c == 7u << scsi::algorithm_descriptor::flags3_rdmc_c_pos) {
+        std::cerr << "stenc: Device does not allow control of raw reads\n";
+        exit(EXIT_FAILURE);
+      }
     }
 
     // Write the options to the tape device
