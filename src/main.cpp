@@ -15,8 +15,10 @@ GNU General Public License for more details.
 */
 #include <config.h>
 
+#include <algorithm>
 #include <charconv>
 #include <cstdint>
+#include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <ios>
@@ -114,7 +116,7 @@ encryption status and capabilities of DEVICE, including a list of supported\n\
 algorithm indexes.\n";
 }
 
-static void print_algorithm_name(std::ostream& os, const uint32_t code)
+static void print_algorithm_name(std::ostream& os, const std::uint32_t code)
 {
   // Reference: SFSC / INCITS 501-2016
   if (0x80010400 <= code && code <= 0x8001FFFF) {
@@ -146,8 +148,7 @@ static void print_algorithms(std::ostream& os, const scsi::page_dec& page)
 
   os << "Supported algorithms:\n";
 
-  for (auto ad_ptr: algorithms) {
-    auto& ad {*ad_ptr};
+  for (const scsi::algorithm_descriptor& ad: algorithms) {
     os << std::left << std::setw(5)
        << static_cast<unsigned int>(ad.algorithm_index);
     print_algorithm_name(os, ntohl(ad.security_algorithm_code));
@@ -156,7 +157,7 @@ static void print_algorithms(std::ostream& os, const scsi::page_dec& page)
     // Print KAD capabilities and size
     auto dkad_c {static_cast<unsigned int>(
         ad.flags3 & scsi::algorithm_descriptor::flags3_dkad_c_mask)};
-    if (dkad_c == 1u << scsi::algorithm_descriptor::flags3_dkad_c_pos) {
+    if (dkad_c == 2u << scsi::algorithm_descriptor::flags3_dkad_c_pos) {
       os << std::left << std::setw(5) << ""
          << "Key descriptors not allowed\n";
     } else if (dkad_c) {
@@ -211,13 +212,6 @@ static void print_device_inquiry(std::ostream& os,
   os << std::left << std::setw(25) << "Product Revision:";
   os.write(iresult.product_rev, 4);
   os.put('\n');
-}
-
-static void inquiryDrive(const std::string& tapeDevice)
-{
-  // todo: std::cout should not be used outside main()
-  auto iresult {scsi::get_inquiry(tapeDevice)};
-  print_device_inquiry(std::cout, iresult);
 }
 
 static void print_device_status(std::ostream& os, const scsi::page_des& opt)
@@ -275,31 +269,20 @@ static void print_device_status(std::ostream& os, const scsi::page_des& opt)
        << static_cast<unsigned int>(opt.algorithm_index) << '\n';
   }
   auto kads {scsi::read_page_kads(opt)};
-  for (auto kd: kads) {
-    switch (kd->type) {
+  for (const scsi::kad& kd: kads) {
+    switch (kd.type) {
     case scsi::kad_type::ukad:
       os << std::setw(25) << "Drive Key Desc.(uKAD): ";
-      os.write(reinterpret_cast<const char *>(kd->descriptor),
-               ntohs(kd->length));
+      os.write(reinterpret_cast<const char *>(kd.descriptor), ntohs(kd.length));
       os.put('\n');
       break;
     case scsi::kad_type::akad:
       os << std::setw(25) << "Drive Key Desc.(aKAD): ";
-      os.write(reinterpret_cast<const char *>(kd->descriptor),
-               ntohs(kd->length));
+      os.write(reinterpret_cast<const char *>(kd.descriptor), ntohs(kd.length));
       os.put('\n');
       break;
     }
   }
-}
-
-static void showDriveStatus(const std::string& tapeDrive)
-{
-  alignas(4) scsi::page_buffer buffer;
-  scsi::get_des(tapeDrive, buffer, sizeof(buffer));
-  auto& opt {reinterpret_cast<const scsi::page_des&>(buffer)};
-
-  print_device_status(std::cout, opt);
 }
 
 static void print_volume_status(std::ostream& os, const scsi::page_nbes& opt)
@@ -343,18 +326,18 @@ static void print_volume_status(std::ostream& os, const scsi::page_nbes& opt)
     break;
   case 6u << scsi::page_nbes::status_encryption_pos:
     os << "Encrypted, but unable to decrypt due to invalid key.\n";
-    for (auto kd: kads) {
-      switch (kd->type) {
+    for (const scsi::kad& kd: kads) {
+      switch (kd.type) {
       case scsi::kad_type::ukad:
         os << std::setw(25) << "Volume Key Desc.(uKAD): ";
-        os.write(reinterpret_cast<const char *>(kd->descriptor),
-                 ntohs(kd->length));
+        os.write(reinterpret_cast<const char *>(kd.descriptor),
+                 ntohs(kd.length));
         os.put('\n');
         break;
       case scsi::kad_type::akad:
         os << std::setw(25) << "Volume Key Desc.(aKAD): ";
-        os.write(reinterpret_cast<const char *>(kd->descriptor),
-                 ntohs(kd->length));
+        os.write(reinterpret_cast<const char *>(kd.descriptor),
+                 ntohs(kd.length));
         os.put('\n');
         break;
       }
@@ -376,15 +359,6 @@ static void print_volume_status(std::ostream& os, const scsi::page_nbes& opt)
   }
 }
 
-static void showVolumeStatus(const std::string& tapeDrive)
-{
-  alignas(4) scsi::page_buffer buffer;
-  scsi::get_nbes(tapeDrive, buffer, sizeof(buffer));
-  auto& opt {reinterpret_cast<const scsi::page_nbes&>(buffer)};
-
-  print_volume_status(std::cout, opt);
-}
-
 static void echo(bool on)
 {
   struct termios settings {};
@@ -402,11 +376,13 @@ int main(int argc, char **argv)
 
   std::optional<scsi::encrypt_mode> enc_mode;
   std::optional<scsi::decrypt_mode> dec_mode;
-  std::uint8_t algorithm_index;
+  std::optional<std::uint8_t> algorithm_index;
   std::vector<uint8_t> key;
   std::string key_name;
   scsi::sde_rdmc rdmc {};
   bool ckod {};
+
+  alignas(4) scsi::page_buffer buffer {};
 
   enum opt_key : int {
     opt_version = 256,
@@ -446,7 +422,7 @@ int main(int argc, char **argv)
         dec_mode = scsi::decrypt_mode::mixed;
       } else {
         print_usage(std::cerr);
-        exit(EXIT_FAILURE);
+        std::exit(EXIT_FAILURE);
       }
       break;
     }
@@ -458,7 +434,7 @@ int main(int argc, char **argv)
         enc_mode = scsi::encrypt_mode::off;
       } else {
         print_usage(std::cerr);
-        exit(EXIT_FAILURE);
+        std::exit(EXIT_FAILURE);
       }
       break;
     }
@@ -477,21 +453,21 @@ int main(int argc, char **argv)
     case opt_rdmc_disable:
       rdmc = scsi::sde_rdmc::disabled;
       break;
-    case static_cast<int>('h'):
+    case 'h':
       print_usage(std::cout);
-      exit(EXIT_SUCCESS);
+      std::exit(EXIT_SUCCESS);
     case opt_version:
       std::cout << "stenc " VERSION " - SCSI Tape Encryption Manager\n"
                 << "https://github.com/scsitape/stenc\n";
-      exit(EXIT_SUCCESS);
+      std::exit(EXIT_SUCCESS);
     default:
       print_usage(std::cerr);
-      exit(EXIT_FAILURE);
+      std::exit(EXIT_FAILURE);
     }
   }
   if (optind != argc) { // left-over unparsed arguments or options
     print_usage(std::cerr);
-    exit(EXIT_FAILURE);
+    std::exit(EXIT_FAILURE);
   }
 
   // select device from env variable or system default if not given with -f
@@ -511,11 +487,15 @@ int main(int argc, char **argv)
               << "--------------------------------------------------\n";
 
     try {
-      inquiryDrive(tapeDrive);
-      showDriveStatus(tapeDrive);
+      print_device_inquiry(std::cout, scsi::get_inquiry(tapeDrive));
+      scsi::get_des(tapeDrive, buffer, sizeof(buffer));
+      print_device_status(std::cout,
+                          reinterpret_cast<const scsi::page_des&>(buffer));
       if (scsi::is_device_ready(tapeDrive)) {
         try {
-          showVolumeStatus(tapeDrive);
+          scsi::get_nbes(tapeDrive, buffer, sizeof(buffer));
+          print_volume_status(std::cout,
+                              reinterpret_cast<const scsi::page_nbes&>(buffer));
         } catch (const scsi::scsi_error& err) {
           // #71: ignore BLANK CHECK sense key that some drives may return
           // during media access check in getting NBES
@@ -526,19 +506,17 @@ int main(int argc, char **argv)
           }
         }
       }
-      alignas(4) scsi::page_buffer buffer {};
       scsi::get_dec(tapeDrive, buffer, sizeof(buffer));
-      auto& page {reinterpret_cast<const scsi::page_dec&>(buffer)};
-
-      print_algorithms(std::cout, page);
-      exit(EXIT_SUCCESS);
+      print_algorithms(std::cout,
+                       reinterpret_cast<const scsi::page_dec&>(buffer));
+      std::exit(EXIT_SUCCESS);
     } catch (const scsi::scsi_error& err) {
       std::cerr << "stenc: " << err.what() << '\n';
       scsi::print_sense_data(std::cerr, err.get_sense());
-      exit(EXIT_FAILURE);
+      std::exit(EXIT_FAILURE);
     } catch (const std::runtime_error& err) {
       std::cerr << "stenc: " << err.what() << '\n';
-      exit(EXIT_FAILURE);
+      std::exit(EXIT_FAILURE);
     }
   }
 
@@ -553,7 +531,7 @@ int main(int argc, char **argv)
     } else {
       std::cerr << "stenc: Unexpected encrypt mode "
                 << static_cast<unsigned int>(*enc_mode) << '\n';
-      exit(EXIT_FAILURE);
+      std::exit(EXIT_FAILURE);
     }
   } else if (!enc_mode && dec_mode) {
     if (dec_mode == scsi::decrypt_mode::off) {
@@ -566,7 +544,7 @@ int main(int argc, char **argv)
     } else {
       std::cerr << "stenc: Unexpected decrypt mode "
                 << static_cast<unsigned int>(*dec_mode) << '\n';
-      exit(EXIT_FAILURE);
+      std::exit(EXIT_FAILURE);
     }
   }
 
@@ -574,7 +552,7 @@ int main(int argc, char **argv)
       dec_mode != scsi::decrypt_mode::off) {
     if (keyFile.empty()) {
       std::cerr << "stenc: Encryption key required but no key file specified\n";
-      exit(EXIT_FAILURE);
+      std::exit(EXIT_FAILURE);
     }
 
     // set keyInput here
@@ -582,7 +560,7 @@ int main(int argc, char **argv)
 
     if (keyFile == "-"s) { // Read key file from standard input
       if (isatty(STDIN_FILENO)) {
-        std::cout << "Enter key (input will be hidden): ";
+        std::cout << "Enter key in hex format (input will be hidden): ";
         echo(false);
       }
       std::getline(std::cin, keyInput);
@@ -596,7 +574,7 @@ int main(int argc, char **argv)
       if (!myfile.is_open()) {
         std::cerr << "stenc: Cannot open " << keyFile << ": " << strerror(errno)
                   << '\n';
-        exit(EXIT_FAILURE);
+        std::exit(EXIT_FAILURE);
       }
       std::getline(myfile, keyInput);
       std::getline(myfile, key_name);
@@ -606,53 +584,114 @@ int main(int argc, char **argv)
       key = *key_bytes;
     } else {
       std::cerr << "stenc: Invalid key in key file\n";
+      std::exit(EXIT_FAILURE);
+    }
+  }
+
+  try {
+    scsi::get_dec(tapeDrive, buffer, sizeof(buffer));
+    auto& dec_page {reinterpret_cast<const scsi::page_dec&>(buffer)};
+    auto algorithms {scsi::read_algorithms(dec_page)};
+
+    if (algorithm_index == std::nullopt) {
+      if (algorithms.size() == 1) {
+        // Pick the only available algorithm if not specified
+        const scsi::algorithm_descriptor& ad = algorithms[0];
+        std::cerr << "Algorithm index not specified, using " << std::dec
+                  << static_cast<unsigned int>(ad.algorithm_index) << " (";
+        print_algorithm_name(std::cerr, ntohl(ad.security_algorithm_code));
+        std::cerr << ")\n";
+        algorithm_index = ad.algorithm_index;
+      } else {
+        std::cerr << "stenc: Algorithm index not specified\n";
+        print_algorithms(std::cerr, dec_page);
+        std::exit(EXIT_FAILURE);
+      }
+    }
+
+    auto algo_it {
+        std::find_if(algorithms.begin(), algorithms.end(),
+                     [algorithm_index](const scsi::algorithm_descriptor& ad) {
+                       return ad.algorithm_index == algorithm_index;
+                     })};
+    if (algo_it == algorithms.end()) {
+      std::cerr << "stenc: Algorithm index " << std::dec
+                << static_cast<unsigned int>(*algorithm_index)
+                << " not supported by device\n";
+      std::exit(EXIT_FAILURE);
+    }
+    const scsi::algorithm_descriptor& ad = *algo_it;
+
+    if ((enc_mode != scsi::encrypt_mode::off ||
+         dec_mode != scsi::decrypt_mode::off) &&
+        key.size() != ntohs(ad.key_length)) {
+      std::cerr << "stenc: Incorrect key size, expected " << std::dec
+                << ntohs(ad.key_length) << " bytes, got " << key.size() << '\n';
+      std::exit(EXIT_FAILURE);
+    }
+
+    if (key_name.size() > ntohs(ad.maximum_ukad_length)) {
+      std::cerr << "stenc: Key descriptor exceeds maximum length of "
+                << std::dec << ntohs(ad.maximum_ukad_length) << " bytes\n";
+      std::exit(EXIT_FAILURE);
+    }
+
+    bool ukad_fixed =
+        (ad.flags2 & scsi::algorithm_descriptor::flags2_ukadf_mask) ==
+        scsi::algorithm_descriptor::flags2_ukadf_mask;
+    if (ukad_fixed && key_name.size() < ntohs(ad.maximum_ukad_length)) {
+      // Pad key descriptor to required length
+      key_name.resize(ntohs(ad.maximum_ukad_length), ' ');
+    }
+
+    if (enc_mode != scsi::encrypt_mode::on) {
+      // key descriptor only valid when key is used for writing
+      key_name.erase();
+    }
+
+    if (rdmc != scsi::sde_rdmc {}) {
+      auto rdmc_c {static_cast<unsigned int>(
+          ad.flags3 & scsi::algorithm_descriptor::flags3_rdmc_c_mask)};
+      if (rdmc_c == 6u << scsi::algorithm_descriptor::flags3_rdmc_c_pos ||
+          rdmc_c == 7u << scsi::algorithm_descriptor::flags3_rdmc_c_pos) {
+        std::cerr << "stenc: Device does not allow control of raw reads\n";
+        exit(EXIT_FAILURE);
+      }
+    }
+
+    if (ckod && !scsi::is_device_ready(tapeDrive)) {
+      std::cerr << "stenc: Cannot use --ckod when no tape media is loaded\n";
       exit(EXIT_FAILURE);
     }
-  }
 
-  if (enc_mode != scsi::encrypt_mode::on) {
-    key_name.erase(); // key descriptor only valid when key is used for writing
-  }
-
-  // Write the options to the tape device
-  std::cerr << "Changing encryption settings on device " << tapeDrive << '\n';
-  try {
+    // Write the options to the tape device
+    std::cerr << "Changing encryption settings for device " << tapeDrive
+              << "...\n";
     auto sde_buffer {scsi::make_sde(enc_mode.value(), dec_mode.value(),
-                                    algorithm_index, key, key_name, rdmc,
-                                    ckod)};
+                                    algorithm_index.value(), key, key_name,
+                                    rdmc, ckod)};
     scsi::write_sde(tapeDrive, sde_buffer.get());
-
-    alignas(4) scsi::page_buffer buffer {};
     scsi::get_des(tapeDrive, buffer, sizeof(buffer));
     auto& opt {reinterpret_cast<const scsi::page_des&>(buffer)};
+    std::ostringstream oss;
 
-    if (enc_mode != scsi::encrypt_mode::off) {
-      std::stringstream msg;
-      msg << "Encryption turned on for device '" << tapeDrive << "'. ";
-      if (!key_name.empty()) {
-        msg << "Key Descriptor: '" << key_name << "'";
-      }
-      msg << " Key Instance: " << std::dec << ntohl(opt.key_instance_counter)
-          << '\n';
-
-      syslog(LOG_NOTICE, "%s", msg.str().c_str());
-    } else {
-      std::stringstream msg {};
-
-      msg << "Encryption turned off for device '" << tapeDrive << "'.";
-      msg << " Key Instance: " << std::dec << ntohl(opt.key_instance_counter)
-          << '\n';
-
-      syslog(LOG_NOTICE, "%s", msg.str().c_str());
+    oss << "Encryption settings changed for device " << tapeDrive
+        << ": mode: encrypt = " << enc_mode.value()
+        << ", decrypt = " << dec_mode.value() << '.';
+    if (!key_name.empty()) {
+      oss << " Key Descriptor: '" << key_name << "',";
     }
+    oss << " Key Instance Counter: " << std::dec
+        << ntohl(opt.key_instance_counter) << '\n';
+    syslog(LOG_NOTICE, "%s", oss.str().c_str());
     std::cerr << "Success! See system logs for a key change audit log.\n";
   } catch (const scsi::scsi_error& err) {
     std::cerr << "stenc: " << err.what() << '\n';
     scsi::print_sense_data(std::cerr, err.get_sense());
-    exit(EXIT_FAILURE);
+    std::exit(EXIT_FAILURE);
   } catch (const std::runtime_error& err) {
     std::cerr << "stenc: " << err.what() << '\n';
-    exit(EXIT_FAILURE);
+    std::exit(EXIT_FAILURE);
   }
 }
 #endif // defined(CATCH_CONFIG_MAIN)
