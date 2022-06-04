@@ -631,8 +631,8 @@ int main(int argc, char **argv)
     }
 
     if (key_name.size() > ntohs(ad.maximum_ukad_length)) {
-      std::cerr << "stenc: Key descriptor exceeds maximum length " << std::dec
-                << ntohs(ad.maximum_ukad_length) << '\n';
+      std::cerr << "stenc: Key descriptor exceeds maximum length of " << std::dec
+                << ntohs(ad.maximum_ukad_length) << " bytes\n";
       std::exit(EXIT_FAILURE);
     }
 
