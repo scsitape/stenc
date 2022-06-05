@@ -1,0 +1,40 @@
+#stenc bash completion
+
+_stenc () {
+    local cur prev words cword
+    _init_completion || return
+
+    COMPREPLY=()
+
+    case $prev in
+        --version )
+            return
+            ;;
+        -f )
+            #list tape devices
+            for tape in /sys/class/scsi_tape/*;
+              do devs+="/dev/${tape##*/} ";
+            done;
+            COMPREPLY=($(compgen -W "$devs" -- "$cur"))
+            return
+            ;;
+        -e | --encrypt )
+            COMPREPLY=($(compgen -W 'off on' -- "$cur"))
+            return
+            ;;
+        -d | --decrypt )
+            COMPREPLY=($(compgen -W 'off on mixed' -- "$cur"))
+            return
+            ;;
+        -k | --keyfile )
+            _filedir
+            return
+            ;;
+    esac
+
+    if [[ $cur == -* ]]; then
+        COMPREPLY=($(compgen -W '-f --file -e --encrypt -d --decrypt -k --key-file -a --algorithm --allow-raw-read --no-allow-raw-read --ckod -h --help --version' -- "$cur"))
+        return
+    fi
+}
+complete -F _stenc stenc
