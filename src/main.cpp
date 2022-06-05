@@ -622,6 +622,26 @@ int main(int argc, char **argv)
     }
     const scsi::algorithm_descriptor& ad = *algo_it;
 
+    auto encrypt_c {static_cast<unsigned int>(
+        ad.flags1 & scsi::algorithm_descriptor::flags1_encrypt_c_mask)};
+    if (enc_mode != scsi::encrypt_mode::off &&
+        encrypt_c != 2u << scsi::algorithm_descriptor::flags1_encrypt_c_pos) {
+      std::cerr
+          << "stenc: Device does not support encryption using algorithm index "
+          << std::dec << static_cast<unsigned int>(*algorithm_index) << '\n';
+      std::exit(EXIT_FAILURE);
+    }
+
+    auto decrypt_c {static_cast<unsigned int>(
+        ad.flags1 & scsi::algorithm_descriptor::flags1_decrypt_c_mask)};
+    if (dec_mode != scsi::decrypt_mode::off &&
+        decrypt_c != 2u << scsi::algorithm_descriptor::flags1_decrypt_c_pos) {
+      std::cerr
+          << "stenc: Device does not support decryption using algorithm index "
+          << std::dec << static_cast<unsigned int>(*algorithm_index) << '\n';
+      std::exit(EXIT_FAILURE);
+    }
+
     if ((enc_mode != scsi::encrypt_mode::off ||
          dec_mode != scsi::decrypt_mode::off) &&
         key.size() != ntohs(ad.key_length)) {
