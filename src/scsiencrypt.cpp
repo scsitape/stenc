@@ -238,7 +238,7 @@ inquiry_data get_inquiry(const std::string& device)
 std::unique_ptr<const std::uint8_t[]>
 make_sde(encrypt_mode enc_mode, decrypt_mode dec_mode,
          std::uint8_t algorithm_index, const std::vector<std::uint8_t>& key,
-         const std::string& key_name, sde_rdmc rdmc, bool ckod)
+         const std::string& key_name, kadf kad_format, sde_rdmc rdmc, bool ckod)
 {
   std::size_t length {sizeof(page_sde) + key.size()};
   if (!key_name.empty()) {
@@ -260,6 +260,7 @@ make_sde(encrypt_mode enc_mode, decrypt_mode dec_mode,
   page.encryption_mode = enc_mode;
   page.decryption_mode = dec_mode;
   page.algorithm_index = algorithm_index;
+  page.kad_format = kad_format;
   page.key_length = htons(key.size());
   std::memcpy(page.key, key.data(), key.size());
 

@@ -92,6 +92,12 @@ enum class kad_type : std::uint8_t {
   wkkad = 4u, // wrapped key key-associated data
 };
 
+enum class kadf : std::uint8_t {
+  unspecified = 0u,
+  binary_key_name = 1u,
+  ascii_key_name = 2u,
+};
+
 // key-associated data
 struct __attribute__((packed)) kad {
   kad_type type;
@@ -137,7 +143,7 @@ struct __attribute__((packed)) page_des {
   // raw decryption mode disabled
   static constexpr auto flags_rdmd_pos {0u};
   static constexpr std::byte flags_rdmd_mask {1u << flags_rdmd_pos};
-  std::uint8_t kad_format;
+  kadf kad_format;
   std::uint16_t asdk_count;
   std::byte reserved[8];
   kad kads[];
@@ -178,7 +184,7 @@ struct __attribute__((packed)) page_sde {
   decrypt_mode decryption_mode;
   std::uint8_t algorithm_index;
   std::uint8_t key_format;
-  std::uint8_t kad_format;
+  kadf kad_format;
   std::byte reserved[7];
   std::uint16_t key_length;
   std::uint8_t key[];
@@ -187,9 +193,9 @@ static_assert(sizeof(page_sde) == 20u);
 
 enum class sde_rdmc : std::uint8_t {
   algorithm_default = 0u << page_sde::flags_rdmc_pos,
-  enabled = 2u << page_sde::flags_rdmc_pos,  // corresponds to --unprotect
+  enabled = 2u << page_sde::flags_rdmc_pos,  // corresponds to --allow-raw-read
                                              // command line option
-  disabled = 3u << page_sde::flags_rdmc_pos, // corresponds to --protect command
+  disabled = 3u << page_sde::flags_rdmc_pos, // corresponds to --no-allow-raw-read command
                                              // line option
 };
 
@@ -213,7 +219,7 @@ struct __attribute__((packed)) page_nbes {
   // raw decryption mode disabled status
   static constexpr auto flags_rdmds_pos {0u};
   static constexpr std::byte flags_rdmds_mask {1u << flags_rdmds_pos};
-  std::uint8_t kad_format;
+  kadf kad_format;
   kad kads[];
 };
 static_assert(sizeof(page_nbes) == 16u);
@@ -419,7 +425,7 @@ void get_dec(const std::string& device, std::uint8_t *buffer,
 std::unique_ptr<const std::uint8_t[]>
 make_sde(encrypt_mode enc_mode, decrypt_mode dec_mode,
          std::uint8_t algorithm_index, const std::vector<std::uint8_t>& key,
-         const std::string& key_name, sde_rdmc rdmc, bool ckod);
+         const std::string& key_name, kadf key_format, sde_rdmc rdmc, bool ckod);
 // Write set data encryption parameters to device
 void write_sde(const std::string& device, const std::uint8_t *sde_buffer);
 void print_sense_data(std::ostream& os, const sense_data& sd);

@@ -27,7 +27,8 @@ TEST_CASE("Disable encryption command", "[scsi]")
       0x00, // decryption mode
       0x01, // algorithm index
       0x00, // key format
-      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved [8]
+      0x00, // KAD format
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved [7]
       0x00, 0x00 // key length
       // clang-format on
   };
@@ -35,9 +36,9 @@ TEST_CASE("Disable encryption command", "[scsi]")
   std::vector<std::uint8_t> key {};
   std::string key_name {};
 
-  auto page_buffer {scsi::make_sde(scsi::encrypt_mode::off,
-                                   scsi::decrypt_mode::off, 1u, key, key_name,
-                                   scsi::sde_rdmc::algorithm_default, false)};
+  auto page_buffer {scsi::make_sde(
+      scsi::encrypt_mode::off, scsi::decrypt_mode::off, 1u, key, key_name,
+      scsi::kadf::unspecified, scsi::sde_rdmc::algorithm_default, false)};
   auto& page {reinterpret_cast<const scsi::page_sde&>(*page_buffer.get())};
   REQUIRE(sizeof(scsi::page_header) + ntohs(page.length) == sizeof(expected));
   REQUIRE(std::memcmp(&page, expected, sizeof(expected)) == 0);
@@ -55,7 +56,8 @@ TEST_CASE("Enable encryption command", "[scsi]")
       0x02, // decryption mode
       0x01, // algorithm index
       0x00, // key format
-      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved [8]
+      0x00, // KAD format
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved [7]
       0x00, 0x20, // key length
       0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
       0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
@@ -71,9 +73,9 @@ TEST_CASE("Enable encryption command", "[scsi]")
   };
   std::string key_name {};
 
-  auto page_buffer {scsi::make_sde(scsi::encrypt_mode::on,
-                                   scsi::decrypt_mode::on, 1u, key, key_name,
-                                   scsi::sde_rdmc::algorithm_default, false)};
+  auto page_buffer {scsi::make_sde(
+      scsi::encrypt_mode::on, scsi::decrypt_mode::on, 1u, key, key_name,
+      scsi::kadf::unspecified, scsi::sde_rdmc::algorithm_default, false)};
   auto& page {reinterpret_cast<const scsi::page_sde&>(*page_buffer.get())};
   REQUIRE(sizeof(scsi::page_header) + ntohs(page.length) == sizeof(expected));
   REQUIRE(std::memcmp(&page, expected, sizeof(expected)) == 0);
@@ -91,7 +93,8 @@ TEST_CASE("Enable encryption command with options", "[scsi]")
       0x02, // decryption mode
       0x01, // algorithm index
       0x00, // key format
-      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved [8]
+      0x01, // KAD format
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved [7]
       0x00, 0x20, // key length
       0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
       0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
@@ -107,9 +110,9 @@ TEST_CASE("Enable encryption command with options", "[scsi]")
   };
   std::string key_name {};
 
-  auto page_buffer {scsi::make_sde(scsi::encrypt_mode::on,
-                                   scsi::decrypt_mode::on, 1u, key, key_name,
-                                   scsi::sde_rdmc::enabled, true)};
+  auto page_buffer {scsi::make_sde(
+      scsi::encrypt_mode::on, scsi::decrypt_mode::on, 1u, key, key_name,
+      scsi::kadf::binary_key_name, scsi::sde_rdmc::enabled, true)};
   auto& page {reinterpret_cast<const scsi::page_sde&>(*page_buffer.get())};
   REQUIRE(sizeof(scsi::page_header) + ntohs(page.length) == sizeof(expected));
   REQUIRE(std::memcmp(&page, expected, sizeof(expected)) == 0);
@@ -127,7 +130,8 @@ TEST_CASE("Enable encryption command with key name", "[scsi]")
       0x02, // decryption mode
       0x01, // algorithm index
       0x00, // key format
-      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved [8]
+      0x02, // KAD format
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved [7]
       0x00, 0x20, // key length
       0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
       0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
@@ -148,9 +152,9 @@ TEST_CASE("Enable encryption command with key name", "[scsi]")
   };
   std::string key_name {"Hello world!"s};
 
-  auto page_buffer {scsi::make_sde(scsi::encrypt_mode::on,
-                                   scsi::decrypt_mode::on, 1u, key, key_name,
-                                   scsi::sde_rdmc::algorithm_default, false)};
+  auto page_buffer {scsi::make_sde(
+      scsi::encrypt_mode::on, scsi::decrypt_mode::on, 1u, key, key_name,
+      scsi::kadf::ascii_key_name, scsi::sde_rdmc::algorithm_default, false)};
   auto& page {reinterpret_cast<const scsi::page_sde&>(*page_buffer.get())};
   REQUIRE(sizeof(scsi::page_header) + ntohs(page.length) == sizeof(expected));
   REQUIRE(std::memcmp(&page, expected, sizeof(expected)) == 0);
