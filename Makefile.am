@@ -1,2 +1,2 @@
-SUBDIRS = src man tests
+SUBDIRS = src man tests bash-completion
 # EXTRA_DIST = buildconf

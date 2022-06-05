@@ -70,5 +70,36 @@ if test "${system}" = "FreeBSD"; then
 	  LIBS="${LIBS} -lcam"
 fi
 
-AC_CONFIG_FILES([Makefile src/Makefile man/Makefile tests/Makefile])
+# BASH completion
+AC_ARG_WITH([bash-completion-dir],
+    AS_HELP_STRING([--with-bash-completion-dir[=PATH]],
+        [Install the bash auto-completion script in this directory. @<:@default=yes@:>@]),
+    [],
+    [with_bash_completion_dir=yes])
+
+if test "x$with_bash_completion_dir" = "xyes"
+then
+    extra_args=
+
+    if test "x$prefix" != "xNONE"
+    then
+        extra_args=$prefix
+    fi
+
+AC_MSG_NOTICE(extra_args is $extra_args)
+
+    PKG_CHECK_MODULES([BASH_COMPLETON], [bash-completion >= 2.0],
+        [
+          BASH_COMPLETION_DIR="$datadir/bash-completion/completions"
+        ])
+else
+    BASH_COMPLETION_DIR="$with_bash_completion_dir/"
+fi
+
+AC_MSG_NOTICE(BASH_COMPLETION_DIR is $BASH_COMPLETION_DIR)
+
+AC_SUBST([BASH_COMPLETION_DIR])
+AM_CONDITIONAL([ENABLE_BASH_COMPLETION],[test "x$with_bash_completion_dir" != "xno"])
+
+AC_CONFIG_FILES([Makefile src/Makefile man/Makefile tests/Makefile bash-completion/Makefile])
 AC_OUTPUT 
