@@ -4,6 +4,7 @@ xxxx-xx-xx
 * define C++17 as minimal C++ version
 * build manpage with pandoc
 * Dropped AIX support. If you can test and develop code for AIX, please contact us.
+* Added bash completion
 
 2022-04-25 Jonas Stein <news@jonasstein.de>
 * Version upgraded to 1.1.1
