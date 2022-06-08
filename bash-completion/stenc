@@ -12,10 +12,14 @@ _stenc () {
             ;;
         -f )
             #list tape devices
-            for tape in /sys/class/scsi_tape/*;
-              do devs+="/dev/${tape##*/} ";
-            done;
-            COMPREPLY=($(compgen -W "$devs" -- "$cur"))
+            if [[ $(uname) == Linux ]]; then
+                for tape in /sys/class/scsi_tape/*;
+                  do devs+="/dev/${tape##*/} ";
+                done;
+                COMPREPLY=($(compgen -W "$devs" -- "$cur"))
+            else
+                _filedir
+            fi
             return
             ;;
         -e | --encrypt )
@@ -26,7 +30,7 @@ _stenc () {
             COMPREPLY=($(compgen -W 'off on mixed' -- "$cur"))
             return
             ;;
-        -k | --keyfile )
+        -k | --key-file )
             _filedir
             return
             ;;
