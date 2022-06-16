@@ -44,6 +44,7 @@ done
 #set default key filename
 [ -z "$filename" ] && filename="${descriptor}.key"
 
+umask 077
 echo "Generating the key..."
 openssl rand -hex $key_length > "$filename"
 echo "$descriptor" >> "$filename"
