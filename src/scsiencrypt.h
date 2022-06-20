@@ -36,13 +36,6 @@ GNU General Public License for more details.
 #include <sys/types.h>
 #endif
 
-constexpr std::size_t SSP_PAGE_ALLOCATION = 8192;
-
-// outputs hex in a 2 digit pair
-#define HEX(x)                                                                 \
-  std::right << std::setw(2) << std::setfill('0') << std::hex << (int)(x)      \
-             << std::setfill(' ')
-
 namespace scsi {
 
 enum class encrypt_mode : std::uint8_t {
@@ -150,6 +143,7 @@ struct __attribute__((packed)) page_des {
 };
 static_assert(sizeof(page_des) == 24u);
 
+constexpr std::size_t SSP_PAGE_ALLOCATION = 8192;
 using page_buffer = std::uint8_t[SSP_PAGE_ALLOCATION];
 
 // set data encryption page
@@ -193,10 +187,11 @@ static_assert(sizeof(page_sde) == 20u);
 
 enum class sde_rdmc : std::uint8_t {
   algorithm_default = 0u << page_sde::flags_rdmc_pos,
-  enabled = 2u << page_sde::flags_rdmc_pos,  // corresponds to --allow-raw-read
-                                             // command line option
-  disabled = 3u << page_sde::flags_rdmc_pos, // corresponds to --no-allow-raw-read command
-                                             // line option
+  enabled = 2u << page_sde::flags_rdmc_pos, // corresponds to --allow-raw-read
+                                            // command line option
+  disabled =
+      3u << page_sde::flags_rdmc_pos, // corresponds to --no-allow-raw-read
+                                      // command line option
 };
 
 // next block encryption status page
@@ -290,6 +285,8 @@ struct __attribute__((packed)) algorithm_descriptor {
   std::uint16_t maximum_eedk_size;
   std::byte reserved2[2];
   std::uint32_t security_algorithm_code;
+
+  static constexpr std::size_t header_size {4u};
 };
 static_assert(sizeof(algorithm_descriptor) == 24u);
 
@@ -326,6 +323,8 @@ struct __attribute__((packed)) inquiry_data {
   std::byte reserved1[2];
   std::uint16_t version_descriptor[8];
   std::byte reserved2[22];
+
+  static constexpr std::size_t header_size {5u};
 };
 static_assert(sizeof(inquiry_data) == 96u);
 
@@ -366,7 +365,8 @@ struct __attribute__((packed)) sense_data {
   static constexpr std::byte data_protect {7u};
   static constexpr std::byte blank_check {8u};
 
-  static constexpr auto maximum_size {252u}; // per SPC-5
+  static constexpr std::size_t header_size {8u};
+  static constexpr std::size_t maximum_size {252u}; // per SPC-5
 };
 static_assert(sizeof(sense_data) == 18u);
 
@@ -377,7 +377,7 @@ using sense_buffer = std::array<std::uint8_t, sense_data::maximum_size>;
 class scsi_error : public std::runtime_error {
 public:
   explicit scsi_error(std::unique_ptr<sense_buffer>&& buf)
-      : sense_buf {std::move(buf)}, std::runtime_error {"SCSI I/O error"}
+      : std::runtime_error {"SCSI I/O error"}, sense_buf {std::move(buf)}
   {}
   const sense_data& get_sense() const
   {
@@ -425,7 +425,8 @@ void get_dec(const std::string& device, std::uint8_t *buffer,
 std::unique_ptr<const std::uint8_t[]>
 make_sde(encrypt_mode enc_mode, decrypt_mode dec_mode,
          std::uint8_t algorithm_index, const std::vector<std::uint8_t>& key,
-         const std::string& key_name, kadf key_format, sde_rdmc rdmc, bool ckod);
+         const std::string& key_name, kadf key_format, sde_rdmc rdmc,
+         bool ckod);
 // Write set data encryption parameters to device
 void write_sde(const std::string& device, const std::uint8_t *sde_buffer);
 void print_sense_data(std::ostream& os, const sense_data& sd);
