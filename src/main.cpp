@@ -267,17 +267,14 @@ static void print_device_status(std::ostream& os, const scsi::page_des& opt)
        << static_cast<unsigned int>(opt.algorithm_index) << '\n';
   }
   for (const scsi::kad& kd: scsi::read_page_kads(opt)) {
-    switch (kd.type) {
-    case scsi::kad_type::ukad:
+    if (kd.type == scsi::kad_type::ukad) {
       os << std::setw(25) << "Drive Key Desc.(uKAD): ";
       os.write(reinterpret_cast<const char *>(kd.descriptor), ntohs(kd.length));
       os.put('\n');
-      break;
-    case scsi::kad_type::akad:
+    } else if (kd.type == scsi::kad_type::akad) {
       os << std::setw(25) << "Drive Key Desc.(aKAD): ";
       os.write(reinterpret_cast<const char *>(kd.descriptor), ntohs(kd.length));
       os.put('\n');
-      break;
     }
   }
 }
@@ -323,19 +320,16 @@ static void print_volume_status(std::ostream& os, const scsi::page_nbes& opt)
   case 6u << scsi::page_nbes::status_encryption_pos:
     os << "Encrypted, but unable to decrypt due to invalid key.\n";
     for (const scsi::kad& kd: read_page_kads(opt)) {
-      switch (kd.type) {
-      case scsi::kad_type::ukad:
+      if (kd.type == scsi::kad_type::ukad) {
         os << std::setw(25) << "Volume Key Desc.(uKAD): ";
         os.write(reinterpret_cast<const char *>(kd.descriptor),
                  ntohs(kd.length));
         os.put('\n');
-        break;
-      case scsi::kad_type::akad:
+      } else if (kd.type == scsi::kad_type::akad) {
         os << std::setw(25) << "Volume Key Desc.(aKAD): ";
         os.write(reinterpret_cast<const char *>(kd.descriptor),
                  ntohs(kd.length));
         os.put('\n');
-        break;
       }
     }
     if ((opt.flags & scsi::page_nbes::flags_rdmds_mask) ==
@@ -406,9 +400,17 @@ int main(int argc, char **argv)
   while ((opt_char = getopt_long(argc, argv, "+a:d:e:f:k:h", long_options,
                                  nullptr)) != -1) {
     switch (opt_char) {
-    case 'a':
-      algorithm_index = std::atoi(optarg);
-      break;
+    case 'a': {
+      char *endptr;
+      auto conv_result {std::strtoul(optarg, &endptr, 10)};
+      if (errno || *endptr ||
+          conv_result > std::numeric_limits<
+                            decltype(algorithm_index)::value_type>::max()) {
+        std::cerr << "stenc: Algorithm index " << optarg << " out of range\n";
+        std::exit(EXIT_FAILURE);
+      }
+      algorithm_index = conv_result;
+    } break;
     case 'd': {
       std::string arg {optarg};
       if (arg == "on"s) {
@@ -421,8 +423,7 @@ int main(int argc, char **argv)
         print_usage(std::cerr);
         std::exit(EXIT_FAILURE);
       }
-      break;
-    }
+    } break;
     case 'e': {
       std::string arg {optarg};
       if (arg == "on"s) {
@@ -433,8 +434,7 @@ int main(int argc, char **argv)
         print_usage(std::cerr);
         std::exit(EXIT_FAILURE);
       }
-      break;
-    }
+    } break;
     case 'f':
       tapeDrive = optarg;
       break;

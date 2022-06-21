@@ -33,11 +33,12 @@ GNU General Public License for more details.
 #if defined(OS_LINUX)
 #include <scsi/scsi.h>
 #include <scsi/sg.h>
-#define SCSI_TIMEOUT 5000
+constexpr unsigned int SCSI_TIMEOUT {5000u};
 #elif defined(OS_FREEBSD)
 #include <cam/scsi/scsi_message.h>
 #include <camlib.h>
-#define SCSI_TIMEOUT 5000
+constexpr unsigned int SCSI_TIMEOUT {5000u};
+constexpr unsigned int RETRYCOUNT {1u};
 #else
 #error "OS type is not set"
 #endif
@@ -48,8 +49,6 @@ constexpr std::uint8_t SSP_SPIN_OPCODE = 0xa2;
 constexpr std::uint8_t SSP_SPOUT_OPCODE = 0xb5;
 constexpr std::uint8_t SSP_SP_CMD_LEN = 12;
 constexpr std::uint8_t SSP_SP_PROTOCOL_TDE = 0x20;
-
-constexpr int RETRYCOUNT = 1;
 
 #define BSINTTOCHAR(x)                                                         \
   static_cast<std::uint8_t>((x) >> 24), static_cast<std::uint8_t>((x) >> 16),  \
@@ -85,10 +84,42 @@ using unique_fd =
 
 enum class scsi_direction { to_device, from_device };
 
+struct hex {
+  std::uint8_t value;
+};
+
+inline std::ostream& operator<<(std::ostream& os, hex h)
+{
+  auto fill {os.fill('0')};
+  auto flags {os.flags(std::ios_base::hex | std::ios_base::right)};
+
+  os << std::setw(2) << static_cast<unsigned int>(h.value);
+
+  os.flags(flags);
+  os.fill(fill);
+  return os;
+}
+
 static void scsi_execute(const std::string& device, const std::uint8_t *cmd_p,
                          std::size_t cmd_len, std::uint8_t *dxfer_p,
                          std::size_t dxfer_len, scsi_direction direction)
 {
+#if defined(DEBUGSCSI)
+  std::cerr << "SCSI Command: ";
+  for (std::size_t i = 0; i < cmd_len; i++) {
+    std::cerr << hex {cmd_p[i]} << ' ';
+  }
+  std::cerr << '\n';
+
+  if (direction == scsi_direction::to_device && dxfer_len > 0u) {
+    std::cerr << "SCSI Data: ";
+    for (std::size_t i = 0; i < dxfer_len; i++) {
+      std::cerr << hex {dxfer_p[i]} << ' ';
+    }
+    std::cerr << '\n';
+  }
+#endif
+
 #if defined(OS_LINUX)
   unique_fd fd {open(device.c_str(), O_RDONLY | O_NDELAY)};
   if (!fd) {
@@ -185,6 +216,18 @@ void get_des(const std::string& device, std::uint8_t *buffer,
   };
   scsi_execute(device, spin_des_command, sizeof(spin_des_command), buffer,
                length, scsi_direction::from_device);
+
+#if defined(DEBUGSCSI)
+  std::cerr << "SCSI Response: ";
+  auto& page {reinterpret_cast<const page_des&>(*buffer)};
+  std::uint8_t *it {buffer};
+  const std::uint8_t *end {
+      buffer + std::min(length, sizeof(page_header) + ntohs(page.length))};
+  while (it < end) {
+    std::cerr << hex {*it++} << ' ';
+  }
+  std::cerr << '\n';
+#endif
 }
 
 void get_nbes(const std::string& device, std::uint8_t *buffer,
@@ -203,6 +246,18 @@ void get_nbes(const std::string& device, std::uint8_t *buffer,
   };
   scsi_execute(device, spin_nbes_command, sizeof(spin_nbes_command), buffer,
                length, scsi_direction::from_device);
+
+#if defined(DEBUGSCSI)
+  std::cerr << "SCSI Response: ";
+  auto& page {reinterpret_cast<const page_nbes&>(*buffer)};
+  std::uint8_t *it {buffer};
+  const std::uint8_t *end {
+      buffer + std::min(length, sizeof(page_header) + ntohs(page.length))};
+  while (it < end) {
+    std::cerr << hex {*it++} << ' ';
+  }
+  std::cerr << '\n';
+#endif
 }
 
 void get_dec(const std::string& device, std::uint8_t *buffer,
@@ -221,6 +276,18 @@ void get_dec(const std::string& device, std::uint8_t *buffer,
   };
   scsi_execute(device, spin_dec_command, sizeof(spin_dec_command), buffer,
                length, scsi_direction::from_device);
+
+#if defined(DEBUGSCSI)
+  std::cerr << "SCSI Response: ";
+  auto& page {reinterpret_cast<const page_dec&>(*buffer)};
+  std::uint8_t *it {buffer};
+  const std::uint8_t *end {
+      buffer + std::min(length, sizeof(page_header) + ntohs(page.length))};
+  while (it < end) {
+    std::cerr << hex {*it++} << ' ';
+  }
+  std::cerr << '\n';
+#endif
 }
 
 inquiry_data get_inquiry(const std::string& device)
@@ -232,6 +299,20 @@ inquiry_data get_inquiry(const std::string& device)
   scsi_execute(device, scsi_inq_command, sizeof(scsi_inq_command),
                reinterpret_cast<std::uint8_t *>(&inq), sizeof(inq),
                scsi_direction::from_device);
+
+#if defined(DEBUGSCSI)
+  std::cerr << "SCSI Response: ";
+  std::uint8_t *it {reinterpret_cast<std::uint8_t *>(&inq)};
+  const std::uint8_t *end {
+      reinterpret_cast<std::uint8_t *>(&inq) +
+      std::min(sizeof(inquiry_data),
+               inquiry_data::header_size + inq.additional_length)};
+  while (it < end) {
+    std::cerr << hex {*it++} << ' ';
+  }
+  std::cerr << '\n';
+#endif
+
   return inq;
 }
 
@@ -331,30 +412,21 @@ void print_sense_data(std::ostream& os, const sense_data& sd)
     break;
   }
 
-  os << " (0x" << HEX(sense_key) << ")\n";
+  os << " (0x" << hex {static_cast<std::uint8_t>(sense_key)} << ")\n";
 
   os << std::left << std::setw(25) << " ASC:"
-     << "0x" << HEX(sd.additional_sense_code) << '\n';
+     << "0x" << hex {sd.additional_sense_code} << '\n';
 
   os << std::left << std::setw(25) << " ASCQ:"
-     << "0x" << HEX(sd.additional_sense_qualifier) << '\n';
+     << "0x" << hex {sd.additional_sense_qualifier} << '\n';
 
-  if (sd.additional_sense_length > 0) {
-    os << std::left << std::setw(25) << " Additional data: "
-       << "0x";
+#if defined(DEBUGSCSI)
+  auto sense_data_length {sd.additional_sense_length + sense_data::header_size};
+  auto rawsense {reinterpret_cast<const std::uint8_t *>(&sd)};
 
-    for (int i = 0; i < sd.additional_sense_length; i++) {
-      os << HEX(sd.additional_sense_bytes[i]);
-    }
-    os << '\n';
-  }
-#ifdef DEBUGSCSI
-  os << std::left << std::setw(25) << " Raw Sense:"
-     << "0x";
-  char *rawsense = (char *)&sd;
-
-  for (int i = 0; i < sense_data::maximum_size; i++) {
-    os << HEX(rawsense[i]);
+  os << std::left << std::setw(25) << " Raw sense data:";
+  for (std::size_t i = 0; i < sense_data_length; i++) {
+    os << hex {rawsense[i]} << ' ';
   }
   os << '\n';
 #endif
@@ -371,7 +443,7 @@ read_algorithms(const page_dec& page)
   while (it < end) {
     auto elem {reinterpret_cast<const algorithm_descriptor *>(it)};
     v.push_back(std::cref(*elem));
-    it += ntohs(elem->length) + 4u; // length field + preceding 4 byte header
+    it += ntohs(elem->length) + algorithm_descriptor::header_size;
   }
   return v;
 }
