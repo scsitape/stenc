@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include <iomanip>
 #include <ios>
 #include <iostream>
+#include <limits>
 #include <optional>
 #include <sstream>
 #include <string>
