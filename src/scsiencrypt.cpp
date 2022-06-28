@@ -204,8 +204,8 @@ bool is_device_ready(const std::string& device)
   }
 }
 
-void get_des(const std::string& device, std::uint8_t *buffer,
-             std::size_t length)
+const page_des& get_des(const std::string& device, std::uint8_t *buffer,
+                        std::size_t length)
 {
   const std::uint8_t spin_des_command[] {
       SSP_SPIN_OPCODE,
@@ -220,10 +220,10 @@ void get_des(const std::string& device, std::uint8_t *buffer,
   };
   scsi_execute(device, spin_des_command, sizeof(spin_des_command), buffer,
                length, scsi_direction::from_device);
+  auto& page {reinterpret_cast<const page_des&>(*buffer)};
 
 #if defined(DEBUGSCSI)
   std::cerr << "SCSI Response: ";
-  auto& page {reinterpret_cast<const page_des&>(*buffer)};
   std::uint8_t *it {buffer};
   const std::uint8_t *end {
       buffer + std::min(length, sizeof(page_header) + ntohs(page.length))};
@@ -232,10 +232,12 @@ void get_des(const std::string& device, std::uint8_t *buffer,
   }
   std::cerr << '\n';
 #endif
+
+  return page;
 }
 
-void get_nbes(const std::string& device, std::uint8_t *buffer,
-              std::size_t length)
+const page_nbes& get_nbes(const std::string& device, std::uint8_t *buffer,
+                          std::size_t length)
 {
   const std::uint8_t spin_nbes_command[] {
       SSP_SPIN_OPCODE,
@@ -250,10 +252,10 @@ void get_nbes(const std::string& device, std::uint8_t *buffer,
   };
   scsi_execute(device, spin_nbes_command, sizeof(spin_nbes_command), buffer,
                length, scsi_direction::from_device);
+  auto& page {reinterpret_cast<const page_nbes&>(*buffer)};
 
 #if defined(DEBUGSCSI)
   std::cerr << "SCSI Response: ";
-  auto& page {reinterpret_cast<const page_nbes&>(*buffer)};
   std::uint8_t *it {buffer};
   const std::uint8_t *end {
       buffer + std::min(length, sizeof(page_header) + ntohs(page.length))};
@@ -262,10 +264,12 @@ void get_nbes(const std::string& device, std::uint8_t *buffer,
   }
   std::cerr << '\n';
 #endif
+
+  return page;
 }
 
-void get_dec(const std::string& device, std::uint8_t *buffer,
-             std::size_t length)
+const page_dec& get_dec(const std::string& device, std::uint8_t *buffer,
+                        std::size_t length)
 {
   const std::uint8_t spin_dec_command[] {
       SSP_SPIN_OPCODE,
@@ -280,10 +284,10 @@ void get_dec(const std::string& device, std::uint8_t *buffer,
   };
   scsi_execute(device, spin_dec_command, sizeof(spin_dec_command), buffer,
                length, scsi_direction::from_device);
+  auto& page {reinterpret_cast<const page_dec&>(*buffer)};
 
 #if defined(DEBUGSCSI)
   std::cerr << "SCSI Response: ";
-  auto& page {reinterpret_cast<const page_dec&>(*buffer)};
   std::uint8_t *it {buffer};
   const std::uint8_t *end {
       buffer + std::min(length, sizeof(page_header) + ntohs(page.length))};
@@ -292,6 +296,8 @@ void get_dec(const std::string& device, std::uint8_t *buffer,
   }
   std::cerr << '\n';
 #endif
+
+  return page;
 }
 
 inquiry_data get_inquiry(const std::string& device)

@@ -28,6 +28,7 @@ GNU General Public License for more details.
 #include <ios>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -52,6 +53,8 @@ GNU General Public License for more details.
 #include "scsiencrypt.h"
 
 using namespace std::literals::string_literals;
+
+static const auto column_width {std::setw(33)};
 
 static std::optional<std::vector<std::uint8_t>>
 key_from_hex_chars(const std::string& s)
@@ -123,10 +126,12 @@ algorithm indexes.\n";
 
 static void print_algorithm_name(std::ostream& os, const std::uint32_t code)
 {
+  auto fill {os.fill('0')};
+  auto flags {os.flags(std::ios_base::hex | std::ios_base::right)};
+
   // Reference: SFSC / INCITS 501-2016
   if (0x80010400 <= code && code <= 0x8001FFFF) {
-    os << "Vendor specific 0x" << std::setw(8) << std::setfill('0') << std::hex
-       << code << std::setfill(' ');
+    os << "Vendor specific 0x" << std::setw(8) << code;
   }
   switch (code) {
   case 0x0001000C:
@@ -142,16 +147,21 @@ static void print_algorithm_name(std::ostream& os, const std::uint32_t code)
     os << "AES-256-XTS-HMAC-SHA-512";
     break;
   default:
-    os << "Unknown 0x" << std::setw(8) << std::setfill('0') << std::hex << code
-       << std::setfill(' ');
+    os << "Unknown 0x" << std::setw(8) << code;
   }
+
+  os.flags(flags);
+  os.fill(fill);
 }
 
-static void print_algorithms(std::ostream& os, const scsi::page_dec& page)
+static void print_algorithms(
+    std::ostream& os,
+    const std::vector<std::reference_wrapper<const scsi::algorithm_descriptor>>&
+        ads)
 {
   os << "Supported algorithms:\n";
 
-  for (const scsi::algorithm_descriptor& ad: scsi::read_algorithms(page)) {
+  for (const scsi::algorithm_descriptor& ad: ads) {
     os << std::left << std::setw(5)
        << static_cast<unsigned int>(ad.algorithm_index);
     print_algorithm_name(os, ntohl(ad.security_algorithm_code));
@@ -203,56 +213,68 @@ static void print_algorithms(std::ostream& os, const scsi::page_dec& page)
   }
 }
 
+template <std::size_t N>
+inline static void print_fixed_buffer(std::ostream& os,
+                                      const std::array<char, N> buffer)
+{
+  // rtrim and print fixed length buffer
+  auto end = std::find_if(buffer.rbegin(), buffer.rend(), [](char c) {
+               return !std::isspace(c);
+             }).base();
+  std::for_each(buffer.begin(), end, [&](char c) { os.put(c); });
+}
+
 static void print_device_inquiry(std::ostream& os,
                                  const scsi::inquiry_data& iresult)
 {
-  os << std::left << std::setw(25) << "Vendor:";
-  os.write(iresult.vendor, 8);
-  os.put('\n');
-  os << std::left << std::setw(25) << "Product ID:";
-  os.write(iresult.product_id, 16);
-  os.put('\n');
-  os << std::left << std::setw(25) << "Product Revision:";
-  os.write(iresult.product_rev, 4);
-  os.put('\n');
+  print_fixed_buffer(os, iresult.vendor);
+  os.put(' ');
+  print_fixed_buffer(os, iresult.product_id);
+  os.put(' ');
+  print_fixed_buffer(os, iresult.product_rev);
 }
 
-static void print_device_status(std::ostream& os, const scsi::page_des& opt)
+static void
+print_device_status(std::ostream& os, const scsi::page_des& opt,
+                    const std::map<std::uint8_t, std::string>& algorithms)
 {
-  os << std::left << std::setw(25) << "Drive Output:";
+  os << std::left << column_width << "Reading:";
   switch (opt.decryption_mode) {
   case scsi::decrypt_mode::off:
-    os << "Not decrypting\n";
-    os << std::setw(25) << " "
-       << "Raw encrypted data not outputted\n";
-    break;
   case scsi::decrypt_mode::raw:
     os << "Not decrypting\n";
-    os << std::setw(25) << " "
-       << "Raw encrypted data outputted\n";
     break;
   case scsi::decrypt_mode::on:
-    os << "Decrypting\n";
-    os << std::setw(25) << " "
-       << "Unencrypted data not outputted\n";
-    break;
   case scsi::decrypt_mode::mixed:
-    os << "Decrypting\n";
-    os << std::setw(25) << " "
-       << "Unencrypted data outputted\n";
+    os << "Decrypting (";
+    if (algorithms.find(opt.algorithm_index) != algorithms.end()) {
+      os << algorithms.at(opt.algorithm_index);
+    } else {
+      os << "algorithm " << static_cast<unsigned int>(opt.algorithm_index);
+    }
+    os << ")\n";
+    if (opt.decryption_mode == scsi::decrypt_mode::on) {
+      os << column_width << ' ' << "Unencrypted blocks not readable\n";
+    }
     break;
   default:
     os << "Unknown '0x" << std::hex
        << static_cast<unsigned int>(opt.decryption_mode) << "' \n";
     break;
   }
-  os << std::setw(25) << "Drive Input:";
+  os << column_width << "Writing:";
   switch (opt.encryption_mode) {
   case scsi::encrypt_mode::off:
     os << "Not encrypting\n";
     break;
   case scsi::encrypt_mode::on:
-    os << "Encrypting\n";
+    os << "Encrypting (";
+    if (algorithms.find(opt.algorithm_index) != algorithms.end()) {
+      os << algorithms.at(opt.algorithm_index);
+    } else {
+      os << "algorithm " << static_cast<unsigned int>(opt.algorithm_index);
+    }
+    os << ")\n";
     break;
   default:
     os << "Unknown result '0x" << std::hex
@@ -261,47 +283,29 @@ static void print_device_status(std::ostream& os, const scsi::page_des& opt)
   }
   if ((opt.flags & scsi::page_des::flags_rdmd_mask) ==
       scsi::page_des::flags_rdmd_mask) {
-    os << std::setw(25) << " "
-       << "Protecting from raw read\n";
+    os << column_width << ' ' << "Protecting from raw read\n";
   }
 
-  os << std::setw(25) << "Key Instance Counter:" << std::dec
+  os << column_width << "Key instance counter:" << std::dec
      << ntohl(opt.key_instance_counter) << '\n';
-  if (opt.algorithm_index != 0) {
-    os << std::setw(25) << "Encryption Algorithm:" << std::dec
-       << static_cast<unsigned int>(opt.algorithm_index) << '\n';
-  }
   for (const scsi::kad& kd: scsi::read_page_kads(opt)) {
     if (kd.type == scsi::kad_type::ukad) {
-      os << std::setw(25) << "Drive Key Desc.(uKAD): ";
+      os << column_width << "Drive key desc. (U-KAD):";
       os.write(reinterpret_cast<const char *>(kd.descriptor), ntohs(kd.length));
       os.put('\n');
     } else if (kd.type == scsi::kad_type::akad) {
-      os << std::setw(25) << "Drive Key Desc.(aKAD): ";
+      os << column_width << "Drive key desc. (A-KAD):";
       os.write(reinterpret_cast<const char *>(kd.descriptor), ntohs(kd.length));
       os.put('\n');
     }
   }
 }
 
-static void print_volume_status(std::ostream& os, const scsi::page_nbes& opt)
+static void
+print_block_status(std::ostream& os, const scsi::page_nbes& opt,
+                   const std::map<std::uint8_t, std::string>& algorithms)
 {
-  auto compression_status {static_cast<std::uint8_t>(
-      opt.status & scsi::page_nbes::status_compression_mask)};
-  // From vendor docs, no known drives actually report anything other than 0
-  if (compression_status != 0u) {
-    os << std::left << std::setw(25) << "Volume Compressed:";
-    switch (compression_status) {
-    case 0u << scsi::page_nbes::status_compression_pos:
-      os << "Drive cannot determine\n";
-      break;
-    default:
-      os << "Unknown result '" << std::hex
-         << static_cast<unsigned int>(compression_status) << "'\n";
-      break;
-    }
-  }
-  os << std::left << std::setw(25) << "Volume Encryption:";
+  os << std::left << column_width << "Current block status:";
   auto encryption_status {static_cast<std::uint8_t>(
       opt.status & scsi::page_nbes::status_encryption_mask)};
   switch (encryption_status) {
@@ -316,41 +320,48 @@ static void print_volume_status(std::ostream& os, const scsi::page_nbes& opt)
     os << "Not encrypted\n";
     break;
   case 5u << scsi::page_nbes::status_encryption_pos:
-    os << "Encrypted and able to decrypt\n";
+    os << "Encrypted and able to decrypt (";
+    if (algorithms.find(opt.algorithm_index) != algorithms.end()) {
+      os << algorithms.at(opt.algorithm_index);
+    } else {
+      os << "algorithm " << static_cast<unsigned int>(opt.algorithm_index);
+    }
+    os << ")\n";
     if ((opt.flags & scsi::page_nbes::flags_rdmds_mask) ==
         scsi::page_nbes::flags_rdmds_mask) {
-      os << std::left << std::setw(25) << " Protected from raw read\n";
+      os << std::left << column_width << ' ' << "Protected from raw read\n";
     }
     break;
   case 6u << scsi::page_nbes::status_encryption_pos:
-    os << "Encrypted, but unable to decrypt due to invalid key.\n";
+    os << "Encrypted, key missing or invalid (";
+    if (algorithms.find(opt.algorithm_index) != algorithms.end()) {
+      os << algorithms.at(opt.algorithm_index);
+    } else {
+      os << "algorithm " << static_cast<unsigned int>(opt.algorithm_index);
+    }
+    os << ")\n";
+    if ((opt.flags & scsi::page_nbes::flags_rdmds_mask) ==
+        scsi::page_nbes::flags_rdmds_mask) {
+      os << std::left << column_width << ' ' << "Protected from raw read\n";
+    }
     for (const scsi::kad& kd: read_page_kads(opt)) {
       if (kd.type == scsi::kad_type::ukad) {
-        os << std::setw(25) << "Volume Key Desc.(uKAD): ";
+        os << column_width << "Current block key desc. (U-KAD):";
         os.write(reinterpret_cast<const char *>(kd.descriptor),
                  ntohs(kd.length));
         os.put('\n');
       } else if (kd.type == scsi::kad_type::akad) {
-        os << std::setw(25) << "Volume Key Desc.(aKAD): ";
+        os << column_width << "Current block key desc. (A-KAD):";
         os.write(reinterpret_cast<const char *>(kd.descriptor),
                  ntohs(kd.length));
         os.put('\n');
       }
-    }
-    if ((opt.flags & scsi::page_nbes::flags_rdmds_mask) ==
-        scsi::page_nbes::flags_rdmds_mask) {
-      os << std::left << std::setw(25) << " Protected from raw read\n";
     }
     break;
   default:
     os << "Unknown result '" << std::hex
        << static_cast<unsigned int>(encryption_status) << "'\n";
     break;
-  }
-  if (opt.algorithm_index != 0) {
-    os << std::left << std::setw(25)
-       << "Volume Algorithm:" << static_cast<unsigned int>(opt.algorithm_index)
-       << '\n';
   }
 }
 
@@ -485,19 +496,35 @@ int main(int argc, char **argv)
   openlog("stenc", LOG_CONS, LOG_USER);
 
   if (!enc_mode && !dec_mode) {
-    std::cout << "Status for " << tapeDrive << '\n'
-              << "--------------------------------------------------\n";
-
     try {
-      print_device_inquiry(std::cout, scsi::get_inquiry(tapeDrive));
-      scsi::get_des(tapeDrive, buffer, sizeof(buffer));
+      auto inquiry_data {scsi::get_inquiry(tapeDrive)};
+      std::cout << "Status for " << tapeDrive << " (";
+      print_device_inquiry(std::cout, inquiry_data);
+      std::cout << ")\n--------------------------------------------------\n";
+
+      // Build map of algorithm index -> algorithm name
+      auto ads {scsi::read_algorithms(
+          scsi::get_dec(tapeDrive, buffer, sizeof(buffer)))};
+      std::map<std::uint8_t, std::string> algo_names;
+      std::for_each(ads.begin(), ads.end(),
+                    [&algo_names](const scsi::algorithm_descriptor& ad) {
+                      std::ostringstream oss;
+                      print_algorithm_name(oss,
+                                           ntohl(ad.security_algorithm_code));
+                      algo_names[ad.algorithm_index] = oss.str();
+                    });
+      std::ostringstream oss;
+      print_algorithms(
+          oss, ads); // save output here since buffer will be overwritten
+
       print_device_status(std::cout,
-                          reinterpret_cast<const scsi::page_des&>(buffer));
+                          scsi::get_des(tapeDrive, buffer, sizeof(buffer)),
+                          algo_names);
       if (scsi::is_device_ready(tapeDrive)) {
         try {
-          scsi::get_nbes(tapeDrive, buffer, sizeof(buffer));
-          print_volume_status(std::cout,
-                              reinterpret_cast<const scsi::page_nbes&>(buffer));
+          print_block_status(std::cout,
+                             scsi::get_nbes(tapeDrive, buffer, sizeof(buffer)),
+                             algo_names);
         } catch (const scsi::scsi_error& err) {
           // #71: ignore BLANK CHECK sense key that some drives may return
           // during media access check in getting NBES
@@ -508,9 +535,7 @@ int main(int argc, char **argv)
           }
         }
       }
-      scsi::get_dec(tapeDrive, buffer, sizeof(buffer));
-      print_algorithms(std::cout,
-                       reinterpret_cast<const scsi::page_dec&>(buffer));
+      std::cout << oss.str();
       std::exit(EXIT_SUCCESS);
     } catch (const scsi::scsi_error& err) {
       std::cerr << "stenc: " << err.what() << '\n';
@@ -591,9 +616,8 @@ int main(int argc, char **argv)
   }
 
   try {
-    scsi::get_dec(tapeDrive, buffer, sizeof(buffer));
-    auto& dec_page {reinterpret_cast<const scsi::page_dec&>(buffer)};
-    auto algorithms {scsi::read_algorithms(dec_page)};
+    auto algorithms {scsi::read_algorithms(
+        scsi::get_dec(tapeDrive, buffer, sizeof(buffer)))};
 
     if (algorithm_index == std::nullopt) {
       if (algorithms.size() == 1) {
@@ -606,7 +630,7 @@ int main(int argc, char **argv)
         algorithm_index = ad.algorithm_index;
       } else {
         std::cerr << "stenc: Algorithm index not specified\n";
-        print_algorithms(std::cerr, dec_page);
+        print_algorithms(std::cerr, algorithms);
         std::exit(EXIT_FAILURE);
       }
     }
@@ -699,17 +723,16 @@ int main(int argc, char **argv)
                                     algorithm_index.value(), key, key_name,
                                     kad_format, rdmc, ckod)};
     scsi::write_sde(tapeDrive, sde_buffer.get());
-    scsi::get_des(tapeDrive, buffer, sizeof(buffer));
-    auto& opt {reinterpret_cast<const scsi::page_des&>(buffer)};
+    auto& opt {scsi::get_des(tapeDrive, buffer, sizeof(buffer))};
     std::ostringstream oss;
 
     oss << "Encryption settings changed for device " << tapeDrive
         << ": mode: encrypt = " << enc_mode.value()
         << ", decrypt = " << dec_mode.value() << '.';
     if (!key_name.empty()) {
-      oss << " Key Descriptor: '" << key_name << "',";
+      oss << " Key descriptor: '" << key_name << "',";
     }
-    oss << " Key Instance Counter: " << std::dec
+    oss << " Key instance counter: " << std::dec
         << ntohl(opt.key_instance_counter) << '\n';
     syslog(LOG_NOTICE, "%s", oss.str().c_str());
     std::cerr << "Success! See system logs for a key change audit log.\n";

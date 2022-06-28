@@ -48,11 +48,7 @@ TEST_CASE("Test SCSI inquiry output", "[output]")
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   };
-  // note: fixed width strings in output
-  const std::string expected_output {"\
-Vendor:                  ACME    \n\
-Product ID:              Ultrium-1000    \n\
-Product Revision:        1234\n"s};
+  const std::string expected_output {"ACME Ultrium-1000 1234"s};
   std::ostringstream oss;
   print_device_inquiry(oss,
                        reinterpret_cast<const scsi::inquiry_data&>(response));
@@ -61,22 +57,27 @@ Product Revision:        1234\n"s};
 
 TEST_CASE("SCSI get device encryption status output 1", "[output]")
 {
+  std::map<std::uint8_t, std::string> algorithms {
+    { 1, "AES-256-GCM-128"s },
+  };
   const std::uint8_t page[] {
       0x00, 0x20, 0x00, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
       0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   };
   const std::string expected_output {"\
-Drive Output:            Not decrypting\n\
-                         Raw encrypted data not outputted\n\
-Drive Input:             Not encrypting\n\
-Key Instance Counter:    0\n"s};
+Reading:                         Not decrypting\n\
+Writing:                         Not encrypting\n\
+Key instance counter:            0\n"s};
   std::ostringstream oss;
-  print_device_status(oss, reinterpret_cast<const scsi::page_des&>(page));
+  print_device_status(oss, reinterpret_cast<const scsi::page_des&>(page), algorithms);
   REQUIRE(oss.str() == expected_output);
 }
 
 TEST_CASE("SCSI get device encryption status output 2", "[output]")
 {
+  std::map<std::uint8_t, std::string> algorithms {
+    { 1, "AES-256-GCM-128"s },
+  };
   const std::uint8_t page[] {
       0x00, 0x20, 0x00, 0x24, 0x42, 0x02, 0x02, 0x01, 0x00, 0x00,
       0x00, 0x01, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -84,42 +85,64 @@ TEST_CASE("SCSI get device encryption status output 2", "[output]")
       0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, 0x21,
   };
   const std::string expected_output {"\
-Drive Output:            Decrypting\n\
-                         Unencrypted data not outputted\n\
-Drive Input:             Encrypting\n\
-Key Instance Counter:    1\n\
-Encryption Algorithm:    1\n\
-Drive Key Desc.(uKAD):   Hello world!\n"s};
+Reading:                         Decrypting (AES-256-GCM-128)\n\
+                                 Unencrypted blocks not readable\n\
+Writing:                         Encrypting (AES-256-GCM-128)\n\
+Key instance counter:            1\n\
+Drive key desc. (U-KAD):         Hello world!\n"s};
   std::ostringstream oss;
-  print_device_status(oss, reinterpret_cast<const scsi::page_des&>(page));
+  print_device_status(oss, reinterpret_cast<const scsi::page_des&>(page), algorithms);
   REQUIRE(oss.str() == expected_output);
 }
 
 TEST_CASE("Test SCSI get next block encryption status output 1", "[output]")
 {
+  std::map<std::uint8_t, std::string> algorithms {
+    { 1, "AES-256-GCM-128"s },
+  };
   const std::uint8_t page[] {
       0x00, 0x21, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x00,
       0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
   };
   const std::string expected_output {"\
-Volume Encryption:       Not encrypted\n"s};
+Current block status:            Not encrypted\n"s};
   std::ostringstream oss;
-  print_volume_status(oss, reinterpret_cast<const scsi::page_nbes&>(page));
+  print_block_status(oss, reinterpret_cast<const scsi::page_nbes&>(page), algorithms);
   REQUIRE(oss.str() == expected_output);
 }
 
 TEST_CASE("Test SCSI get next block encryption status output 2", "[output]")
 {
+  std::map<std::uint8_t, std::string> algorithms {
+    { 1, "AES-256-GCM-128"s },
+  };
   const std::uint8_t page[] {
       0x00, 0x21, 0x00, 0x1c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
       0x00, 0x05, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x0c, 0x48, 0x65,
       0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, 0x21,
   };
   const std::string expected_output {"\
-Volume Encryption:       Encrypted and able to decrypt\n\
-Volume Algorithm:        1\n"s};
+Current block status:            Encrypted and able to decrypt (AES-256-GCM-128)\n"s};
   std::ostringstream oss;
-  print_volume_status(oss, reinterpret_cast<const scsi::page_nbes&>(page));
+  print_block_status(oss, reinterpret_cast<const scsi::page_nbes&>(page), algorithms);
+  REQUIRE(oss.str() == expected_output);
+}
+
+TEST_CASE("Test SCSI get next block encryption status output 3", "[output]")
+{
+  std::map<std::uint8_t, std::string> algorithms {
+    { 1, "AES-256-GCM-128"s },
+  };
+  const std::uint8_t page[] {
+      0x00, 0x21, 0x00, 0x1c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x06, 0x01, 0x00, 0x02, 0x00, 0x01, 0x00, 0x0c, 0x48, 0x65,
+      0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, 0x21,
+  };
+  const std::string expected_output {"\
+Current block status:            Encrypted, key missing or invalid (AES-256-GCM-128)\n\
+Current block key desc. (U-KAD): Hello world!\n"s};
+  std::ostringstream oss;
+  print_block_status(oss, reinterpret_cast<const scsi::page_nbes&>(page), algorithms);
   REQUIRE(oss.str() == expected_output);
 }
 
@@ -142,6 +165,7 @@ Supported algorithms:\n\
      Key descriptors allowed, fixed 32 bytes\n\
      Raw decryption mode allowed, raw read disabled by default\n"s};
   std::ostringstream oss;
-  print_algorithms(oss, reinterpret_cast<const scsi::page_dec&>(page));
+  print_algorithms(oss, scsi::read_algorithms(
+                            reinterpret_cast<const scsi::page_dec&>(page)));
   REQUIRE(oss.str() == expected_output);
 }
