@@ -18,6 +18,7 @@ GNU General Public License for more details.
 */
 #include <config.h>
 
+#include <algorithm>
 #include <cerrno>
 #include <cstring>
 #include <functional>
@@ -49,10 +50,9 @@ constexpr unsigned int RETRYCOUNT {1u};
 
 #include "scsiencrypt.h"
 
-constexpr std::uint8_t SSP_SPIN_OPCODE = 0xa2;
-constexpr std::uint8_t SSP_SPOUT_OPCODE = 0xb5;
-constexpr std::uint8_t SSP_SP_CMD_LEN = 12;
-constexpr std::uint8_t SSP_SP_PROTOCOL_TDE = 0x20;
+constexpr std::uint8_t SSP_SPIN_OPCODE {0xa2};
+constexpr std::uint8_t SSP_SPOUT_OPCODE {0xb5};
+constexpr std::uint8_t SSP_SP_PROTOCOL_TDE {0x20};
 
 #define BSINTTOCHAR(x)                                                         \
   static_cast<std::uint8_t>((x) >> 24), static_cast<std::uint8_t>((x) >> 16),  \
@@ -104,23 +104,33 @@ inline std::ostream& operator<<(std::ostream& os, hex h)
   return os;
 }
 
+void print_buffer(std::ostream& os, const std::uint8_t *begin,
+                  std::size_t length)
+{
+  auto fill {os.fill('0')};
+  auto flags {os.flags(std::ios_base::hex | std::ios_base::right)};
+
+  std::for_each(begin, begin + length, [&](auto b) {
+    os << std::setw(2) << static_cast<unsigned int>(b) << ' ';
+  });
+
+  os.put('\n');
+
+  os.flags(flags);
+  os.fill(fill);
+}
+
 static void scsi_execute(const std::string& device, const std::uint8_t *cmd_p,
                          std::size_t cmd_len, std::uint8_t *dxfer_p,
                          std::size_t dxfer_len, scsi_direction direction)
 {
 #if defined(DEBUGSCSI)
   std::cerr << "SCSI Command: ";
-  for (std::size_t i = 0; i < cmd_len; i++) {
-    std::cerr << hex {cmd_p[i]} << ' ';
-  }
-  std::cerr << '\n';
+  print_buffer(std::cerr, cmd_p, cmd_len);
 
   if (direction == scsi_direction::to_device && dxfer_len > 0u) {
     std::cerr << "SCSI Data: ";
-    for (std::size_t i = 0; i < dxfer_len; i++) {
-      std::cerr << hex {dxfer_p[i]} << ' ';
-    }
-    std::cerr << '\n';
+    print_buffer(std::cerr, dxfer_p, dxfer_len);
   }
 #endif
 
@@ -224,13 +234,8 @@ const page_des& get_des(const std::string& device, std::uint8_t *buffer,
 
 #if defined(DEBUGSCSI)
   std::cerr << "SCSI Response: ";
-  std::uint8_t *it {buffer};
-  const std::uint8_t *end {
-      buffer + std::min(length, sizeof(page_header) + ntohs(page.length))};
-  while (it < end) {
-    std::cerr << hex {*it++} << ' ';
-  }
-  std::cerr << '\n';
+  print_buffer(std::cerr, buffer,
+               std::min(length, sizeof(page_header) + ntohs(page.length)));
 #endif
 
   return page;
@@ -256,13 +261,8 @@ const page_nbes& get_nbes(const std::string& device, std::uint8_t *buffer,
 
 #if defined(DEBUGSCSI)
   std::cerr << "SCSI Response: ";
-  std::uint8_t *it {buffer};
-  const std::uint8_t *end {
-      buffer + std::min(length, sizeof(page_header) + ntohs(page.length))};
-  while (it < end) {
-    std::cerr << hex {*it++} << ' ';
-  }
-  std::cerr << '\n';
+  print_buffer(std::cerr, buffer,
+               std::min(length, sizeof(page_header) + ntohs(page.length)));
 #endif
 
   return page;
@@ -288,13 +288,8 @@ const page_dec& get_dec(const std::string& device, std::uint8_t *buffer,
 
 #if defined(DEBUGSCSI)
   std::cerr << "SCSI Response: ";
-  std::uint8_t *it {buffer};
-  const std::uint8_t *end {
-      buffer + std::min(length, sizeof(page_header) + ntohs(page.length))};
-  while (it < end) {
-    std::cerr << hex {*it++} << ' ';
-  }
-  std::cerr << '\n';
+  print_buffer(std::cerr, buffer,
+               std::min(length, sizeof(page_header) + ntohs(page.length)));
 #endif
 
   return page;
@@ -312,15 +307,9 @@ inquiry_data get_inquiry(const std::string& device)
 
 #if defined(DEBUGSCSI)
   std::cerr << "SCSI Response: ";
-  std::uint8_t *it {reinterpret_cast<std::uint8_t *>(&inq)};
-  const std::uint8_t *end {
-      reinterpret_cast<std::uint8_t *>(&inq) +
-      std::min(sizeof(inquiry_data),
-               inquiry_data::header_size + inq.additional_length)};
-  while (it < end) {
-    std::cerr << hex {*it++} << ' ';
-  }
-  std::cerr << '\n';
+  print_buffer(std::cerr, reinterpret_cast<std::uint8_t *>(&inq),
+               std::min(sizeof(inquiry_data),
+                        inquiry_data::header_size + inq.additional_length));
 #endif
 
   return inq;
@@ -431,14 +420,13 @@ void print_sense_data(std::ostream& os, const sense_data& sd)
      << "0x" << hex {sd.additional_sense_qualifier} << '\n';
 
 #if defined(DEBUGSCSI)
-  auto sense_data_length {sd.additional_sense_length + sense_data::header_size};
+  auto sense_data_length {
+      std::min(sense_data::maximum_size,
+               sd.additional_sense_length + sense_data::header_size)};
   auto rawsense {reinterpret_cast<const std::uint8_t *>(&sd)};
 
   os << std::left << std::setw(25) << " Raw sense data:";
-  for (std::size_t i = 0; i < sense_data_length; i++) {
-    os << hex {rawsense[i]} << ' ';
-  }
-  os << '\n';
+  print_buffer(os, rawsense, sense_data_length);
 #endif
 }
 
