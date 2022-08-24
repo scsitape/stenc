@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2022 stenc authors
+//
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 /*
 stenc - program to set and retrieve hardware based encryption
         options from certain SCSI devices (i.e. LTO4 Tape drives)
