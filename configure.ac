@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2022 stenc authors
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 AC_INIT([stenc],[1.1.1])
 AC_CONFIG_SRCDIR([src/main.cpp])
 AM_INIT_AUTOMAKE([foreign subdir-objects])

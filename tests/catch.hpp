@@ -1,3 +1,8 @@
+// Copyright (c) 2022 Two Blue Cubes Ltd. All rights reserved.
+// SPDX-FileCopyrightText: 2022 Two Blue Cubes Ltd. All rights reserved.
+//
+// SPDX-License-Identifier: BSL-1.0
+
 /*
  *  Catch v2.13.9
  *  Generated: 2022-04-12 22:37:23.260201
@@ -5,9 +10,10 @@
  *  This file has been merged from multiple headers. Please don't edit it directly
  *  Copyright (c) 2022 Two Blue Cubes Ltd. All rights reserved.
  *
- *  Distributed under the Boost Software License, Version 1.0. (See accompanying
- *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+ *  Distributed under the Boost Software License, Version 1.0. (See accompanying 
+ *  file LICENSES/BSL-1.0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
+
 #ifndef TWOBLUECUBES_SINGLE_INCLUDE_CATCH_HPP_INCLUDED
 #define TWOBLUECUBES_SINGLE_INCLUDE_CATCH_HPP_INCLUDED
 // start catch.hpp
