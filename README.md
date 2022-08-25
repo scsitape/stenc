@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2022 stenc authors
+
+SPDX-License-Identifier: GPL-2.0-or-later
+-->
+
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/scsitape/stenc.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/scsitape/stenc/alerts/)
 [![Language grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/scsitape/stenc.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/scsitape/stenc/context:cpp)
 [![REUSE status](https://api.reuse.software/badge/github.com/scsitape/stenc/)](https://api.reuse.software/info/github.com/scsitape/stenc/)
