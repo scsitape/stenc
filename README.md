@@ -30,7 +30,7 @@ Get the source code and compile
 -------------------------------
 
 ```
-git clone git@github.com:scsitape/stenc.git
+git clone https://github.com/christianreiss/stenc.git
 cd stenc/
 autoreconf --install
 ./autogen.sh && ./configure  
@@ -43,7 +43,7 @@ Usage example
 
 
 ```
-$ stenc -f /dev/nst0 --detail
+$ stenc -f /dev/nst0
 Status for /dev/nst0
 --------------------------------------------------
 Device Mfg:              TANDBERG
