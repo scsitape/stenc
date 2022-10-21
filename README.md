@@ -30,7 +30,7 @@ Get the source code and compile
 -------------------------------
 
 ```
-git clone https://github.com/christianreiss/stenc.git
+git clone https://github.com/scsitape/stenc.git
 cd stenc/
 autoreconf --install
 ./autogen.sh && ./configure  
