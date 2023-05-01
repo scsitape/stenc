@@ -50,7 +50,7 @@ modes in tandem.
 
    **on**
       Data read from the device will be decrypted and only encrypted tape blocks can
-      be read. The drive only output data it is able to decrypt, and will not
+      be read. The drive will only read data it is able to decrypt, and will not
       read unencrypted data on the drive.
 
    **mixed**
