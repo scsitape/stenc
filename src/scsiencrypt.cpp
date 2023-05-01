@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <system_error>
 #include <type_traits>
 
 #include <fcntl.h>
@@ -36,7 +37,6 @@ GNU General Public License for more details.
 #endif
 
 #if defined(OS_LINUX)
-#include <scsi/scsi.h>
 #include <scsi/sg.h>
 constexpr unsigned int SCSI_TIMEOUT {5000u};
 #elif defined(OS_FREEBSD)

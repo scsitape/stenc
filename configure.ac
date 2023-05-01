@@ -1,18 +1,15 @@
 # SPDX-FileCopyrightText: 2022 stenc authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-AC_INIT([stenc],[1.1.1])
+AC_INIT([stenc],[2.0.0])
 AC_CONFIG_SRCDIR([src/main.cpp])
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 
-AC_CONFIG_HEADERS([config.h])
-AC_CHECK_HEADER([sys/types.h])
-AC_CHECK_HEADER([sys/machine.h])
+AC_CONFIG_HEADERS([config.h])]
+AC_CHECK_HEADERS
+AC_CHECK_HEADERS([arpa/inet.h netinet/in.h])
 # Checks for programs
 AC_PROG_CXX
-
-# Checks for header files.
-AC_PROG_EGREP
 
 AC_MSG_CHECKING(whether to output raw SCSI messages)
 AC_ARG_WITH([scsi-debug],

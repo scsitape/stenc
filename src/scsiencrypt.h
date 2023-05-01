@@ -20,8 +20,9 @@ GNU General Public License for more details.
 #ifndef _SCSIENC_H
 #define _SCSIENC_H
 
+#include <config.h>
+
 #include <array>
-#include <bitset>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -29,15 +30,14 @@ GNU General Public License for more details.
 #include <ostream>
 #include <string>
 #include <vector>
+#include <stdexcept>
+#include <utility>
 
+#if HAVE_ARPA_INET_H
 #include <arpa/inet.h>
-
-#ifdef HAVE_SYS_MACHINE_H
-#include <sys/machine.h>
 #endif
-
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
+#if HAVE_NETINET_IN_H
+#include <netinet/in.h>
 #endif
 
 namespace scsi {
