@@ -42,19 +42,17 @@ Usage example
 
 ```
 $ stenc -f /dev/nst0
-Status for /dev/nst0
+Status for /dev/nst0 (TANDBERG LTO-6 HH 3579)
 --------------------------------------------------
-Device Mfg:              TANDBERG
-Product ID:              LTO-6 HH        
-Product Revision:        3579
-Drive Encryption:        on
-Drive Output:            Decrypting
-                         Unencrypted data not outputted
-Drive Input:             Encrypting
-                         Protecting from raw read
-Key Instance Counter:    1
-Encryption Algorithm:    1
-Drive Key Desc.(uKAD):   mykey20170113
+Reading:                         Decrypting (AES-256-GCM-128)
+Writing:                         Encrypting (AES-256-GCM-128)
+                                 Protecting from raw read
+Key instance counter:            1
+Drive key desc. (U-KAD):         mykey20170113
+Supported algorithms:
+1    AES-256-GCM-128
+     Key descriptors allowed, maximum 32 bytes
+     Raw decryption mode allowed, raw read enabled by default
 ```
 
 

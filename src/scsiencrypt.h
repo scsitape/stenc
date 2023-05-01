@@ -320,9 +320,9 @@ struct __attribute__((packed)) inquiry_data {
   std::byte flags3;
   std::byte flags4;
   std::byte flags5;
-  char vendor[8];
-  char product_id[16];
-  char product_rev[4];
+  std::array<char, 8> vendor;
+  std::array<char, 16> product_id;
+  std::array<char, 4> product_rev;
   std::uint8_t vendor_specific[20];
   std::byte reserved1[2];
   std::uint16_t version_descriptor[8];
@@ -415,14 +415,14 @@ bool is_device_ready(const std::string& device);
 // Get SCSI inquiry data from device
 inquiry_data get_inquiry(const std::string& device);
 // Get data encryption status page
-void get_des(const std::string& device, std::uint8_t *buffer,
-             std::size_t length);
+const page_des& get_des(const std::string& device, std::uint8_t *buffer,
+                        std::size_t length);
 // Get next block encryption status page
-void get_nbes(const std::string& device, std::uint8_t *buffer,
-              std::size_t length);
+const page_nbes& get_nbes(const std::string& device, std::uint8_t *buffer,
+                          std::size_t length);
 // Get device encryption capabilities
-void get_dec(const std::string& device, std::uint8_t *buffer,
-             std::size_t length);
+const page_dec& get_dec(const std::string& device, std::uint8_t *buffer,
+                        std::size_t length);
 // Fill out a set data encryption page with parameters.
 // Result is allocated and returned as a std::unique_ptr and should
 // be sent to the device using scsi::write_sde
