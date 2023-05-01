@@ -12,20 +12,7 @@ AC_CHECK_HEADER([sys/machine.h])
 AC_PROG_CXX
 
 # Checks for header files.
-m4_warn([obsolete],
-[The preprocessor macro `STDC_HEADERS' is obsolete.
-  Except in unusual embedded environments, you can safely include all
-  ISO C90 headers unconditionally.])dnl
-# Autoupdate added the next two lines to ensure that your configure
-# script's behavior did not change.  They are probably safe to remove.
-
-# Disable AC_CHECK_INCLUDES_DEFAULT, because this macro requires autoconf at 
-# least version 2.70 which is not default yet in many distributions.
-# See: https://github.com/scsitape/stenc/issues/33
-# AC_CHECK_INCLUDES_DEFAULT
 AC_PROG_EGREP
-
-
 
 AC_MSG_CHECKING(whether to output raw SCSI messages)
 AC_ARG_WITH([scsi-debug],
@@ -33,12 +20,6 @@ AC_ARG_WITH([scsi-debug],
 	    [AC_DEFINE([DEBUGSCSI],[1],[Define if you want to debug SCSI Communication])
 	     AC_MSG_RESULT(yes)],
 	    [AC_MSG_RESULT(no)])
-
-AC_MSG_CHECKING(default encryption algorithm index to use)
-AC_ARG_WITH([default-algorithm],
-            [AS_HELP_STRING([--with-default-algorithm=<number>],[the default algorithm index to set for encryption.  Defaults to 0])],
-	    [AC_DEFINE_UNQUOTED([DEFAULT_ALGORITHM],$withval,"") AC_MSG_RESULT($withval)],
-	    [AC_DEFINE([DEFAULT_ALGORITHM],0,"") AC_MSG_RESULT(0)])
 
 AC_MSG_CHECKING(your OS)
 system=`uname`
