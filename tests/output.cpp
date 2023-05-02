@@ -5,11 +5,13 @@
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
 
-#include <memory>
+#include <cstdint>
+#include <map>
+#include <optional>
 #include <sstream>
 #include <string>
+#include <vector>
 
-#include "config.h"
 #include "main.cpp"
 
 using namespace std::literals::string_literals;
@@ -58,7 +60,7 @@ TEST_CASE("Test SCSI inquiry output", "[output]")
 TEST_CASE("SCSI get device encryption status output 1", "[output]")
 {
   std::map<std::uint8_t, std::string> algorithms {
-    { 1, "AES-256-GCM-128"s },
+      {1, "AES-256-GCM-128"s},
   };
   const std::uint8_t page[] {
       0x00, 0x20, 0x00, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -69,14 +71,15 @@ Reading:                         Not decrypting\n\
 Writing:                         Not encrypting\n\
 Key instance counter:            0\n"s};
   std::ostringstream oss;
-  print_device_status(oss, reinterpret_cast<const scsi::page_des&>(page), algorithms);
+  print_device_status(oss, reinterpret_cast<const scsi::page_des&>(page),
+                      algorithms);
   REQUIRE(oss.str() == expected_output);
 }
 
 TEST_CASE("SCSI get device encryption status output 2", "[output]")
 {
   std::map<std::uint8_t, std::string> algorithms {
-    { 1, "AES-256-GCM-128"s },
+      {1, "AES-256-GCM-128"s},
   };
   const std::uint8_t page[] {
       0x00, 0x20, 0x00, 0x24, 0x42, 0x02, 0x02, 0x01, 0x00, 0x00,
@@ -91,14 +94,15 @@ Writing:                         Encrypting (AES-256-GCM-128)\n\
 Key instance counter:            1\n\
 Drive key desc. (U-KAD):         Hello world!\n"s};
   std::ostringstream oss;
-  print_device_status(oss, reinterpret_cast<const scsi::page_des&>(page), algorithms);
+  print_device_status(oss, reinterpret_cast<const scsi::page_des&>(page),
+                      algorithms);
   REQUIRE(oss.str() == expected_output);
 }
 
 TEST_CASE("Test SCSI get next block encryption status output 1", "[output]")
 {
   std::map<std::uint8_t, std::string> algorithms {
-    { 1, "AES-256-GCM-128"s },
+      {1, "AES-256-GCM-128"s},
   };
   const std::uint8_t page[] {
       0x00, 0x21, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x00,
@@ -107,14 +111,15 @@ TEST_CASE("Test SCSI get next block encryption status output 1", "[output]")
   const std::string expected_output {"\
 Current block status:            Not encrypted\n"s};
   std::ostringstream oss;
-  print_block_status(oss, reinterpret_cast<const scsi::page_nbes&>(page), algorithms);
+  print_block_status(oss, reinterpret_cast<const scsi::page_nbes&>(page),
+                     algorithms);
   REQUIRE(oss.str() == expected_output);
 }
 
 TEST_CASE("Test SCSI get next block encryption status output 2", "[output]")
 {
   std::map<std::uint8_t, std::string> algorithms {
-    { 1, "AES-256-GCM-128"s },
+      {1, "AES-256-GCM-128"s},
   };
   const std::uint8_t page[] {
       0x00, 0x21, 0x00, 0x1c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -124,14 +129,15 @@ TEST_CASE("Test SCSI get next block encryption status output 2", "[output]")
   const std::string expected_output {"\
 Current block status:            Encrypted and able to decrypt (AES-256-GCM-128)\n"s};
   std::ostringstream oss;
-  print_block_status(oss, reinterpret_cast<const scsi::page_nbes&>(page), algorithms);
+  print_block_status(oss, reinterpret_cast<const scsi::page_nbes&>(page),
+                     algorithms);
   REQUIRE(oss.str() == expected_output);
 }
 
 TEST_CASE("Test SCSI get next block encryption status output 3", "[output]")
 {
   std::map<std::uint8_t, std::string> algorithms {
-    { 1, "AES-256-GCM-128"s },
+      {1, "AES-256-GCM-128"s},
   };
   const std::uint8_t page[] {
       0x00, 0x21, 0x00, 0x1c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -142,7 +148,8 @@ TEST_CASE("Test SCSI get next block encryption status output 3", "[output]")
 Current block status:            Encrypted, key missing or invalid (AES-256-GCM-128)\n\
 Current block key desc. (U-KAD): Hello world!\n"s};
   std::ostringstream oss;
-  print_block_status(oss, reinterpret_cast<const scsi::page_nbes&>(page), algorithms);
+  print_block_status(oss, reinterpret_cast<const scsi::page_nbes&>(page),
+                     algorithms);
   REQUIRE(oss.str() == expected_output);
 }
 

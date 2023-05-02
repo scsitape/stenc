@@ -20,31 +20,38 @@ GNU General Public License for more details.
 #include <config.h>
 
 #include <algorithm>
+#include <array>
+#include <cctype>
 #include <charconv>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
+#include <functional>
 #include <iomanip>
-#include <ios>
 #include <iostream>
 #include <limits>
 #include <map>
+#include <memory>
 #include <optional>
 #include <sstream>
+#include <stdexcept>
 #include <string>
+#include <system_error>
 #include <vector>
 
+#include <errno.h>
 #include <getopt.h>
+#include <string.h>
 #include <sys/mtio.h>
-#include <sys/stat.h>
 #include <syslog.h>
 #include <termios.h>
 
-#ifdef HAVE_STDLIB_H
-#include <stdlib.h>
+#if HAVE_ARPA_INET_H
+#include <arpa/inet.h>
 #endif
-#ifdef HAVE_STRING_H
-#include <string.h>
+#if HAVE_NETINET_IN_H
+#include <netinet/in.h>
 #endif
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -383,7 +390,7 @@ int main(int argc, char **argv)
   std::optional<scsi::encrypt_mode> enc_mode;
   std::optional<scsi::decrypt_mode> dec_mode;
   std::optional<std::uint8_t> algorithm_index;
-  std::vector<uint8_t> key;
+  std::vector<std::uint8_t> key;
   std::string key_name;
   scsi::sde_rdmc rdmc {};
   scsi::kadf kad_format {};
