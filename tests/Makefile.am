@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2022 stenc authors
 #
-# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-License-Identifier: CC0-1.0
 
 AM_CPPFLAGS=-std=c++17 -I${top_srcdir}/src
 TESTS=scsi output

@@ -6,19 +6,18 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 [![REUSE status](https://api.reuse.software/badge/github.com/scsitape/stenc/)](https://api.reuse.software/info/github.com/scsitape/stenc/)
 
-
 Stenc
 -----
 
-SCSI Tape Encryption Manager - Manages encryption on LTO tape drives (starting with generation 4) with hardware-based encryption. 
-Program should work on any other SCSI security protocol (SSP) capable tape drives. Built specifically for Linux. 
+SCSI Tape Encryption Manager - Manages hardware encryption on LTO tape drives (starting with generation 4).
+Program should work on any other SCSI security protocol (SSP) capable tape drives.
 Supports key change auditing and key descriptors (uKAD). 
 
 Features
 --------
 
 * SCSI hardware-based encryption management
-* Supports Linux 
+* Supports Linux and FreeBSD
 * Supports most SSP compliant devices, such as LTO-4 tape drives
 * Key change audit logging
 * AES Encryption
@@ -39,7 +38,6 @@ make
 Usage example
 -------------
 
-
 ```
 $ stenc -f /dev/nst0
 Status for /dev/nst0 (TANDBERG LTO-6 HH 3579)
@@ -55,16 +53,13 @@ Supported algorithms:
      Raw decryption mode allowed, raw read enabled by default
 ```
 
-
 Linux Packages
 --------------
 [![Packaging status](https://repology.org/badge/vertical-allrepos/stenc.svg)](https://repology.org/metapackage/stenc)
 
-
 Requirements
 ------------
 AIX support was suspended on 2022-05-08 until we have contributors who can develop and test the code on AIX.
-
 
 License
 -------
