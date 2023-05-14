@@ -7,6 +7,7 @@
 * Added bash completion
 * New syntax
 * Added missing includes
+* Special thanks to James Wilson, Paweł Marciniak, Christian Reiss and Alvaro Muñoz 
 
 2022-04-25 Jonas Stein <news@jonasstein.de>
 * Version upgraded to 1.1.1
