@@ -32,4 +32,12 @@
     </references>
     <cpe-23:cpe23-item name="cpe:2.3:a:stencproject:stenc:1.1.1:*:*:*:*:*:*:*"/>
   </cpe-item>
+ <cpe-item name="cpe:/a:stencproject:stenc:2.0.0">
+    <title xml:lang="en-US">stenc 2.0.0</title>
+    <references>
+      <reference href="https://github.com/scsitape/stenc/releases">VERSION</reference>
+      <reference href="https://github.com/scsitape">VENDOR</reference>
+    </references>
+    <cpe-23:cpe23-item name="cpe:2.3:a:stencproject:stenc:2.0.0:*:*:*:*:*:*:*"/>
+ </cpe-item>
 </cpe-list>
