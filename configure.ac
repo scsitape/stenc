@@ -5,7 +5,7 @@ AC_INIT([stenc],[2.0.0])
 AC_CONFIG_SRCDIR([src/main.cpp])
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 
-AC_CONFIG_HEADERS([config.h])]
+AC_CONFIG_HEADERS([config.h])
 AC_CHECK_HEADERS
 AC_CHECK_HEADERS([arpa/inet.h netinet/in.h])
 # Checks for programs
