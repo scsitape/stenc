@@ -1,3 +1,7 @@
+2025-07-24 Jonas Stein <news@jonasstein.de>
+* Version upgraded to 2.0.1
+* Fix typo in configure. Superflous ]
+
 2023-05-14 Jonas Stein <news@jonasstein.de>
 * Version upgraded to 2.0.0
 * define C++17 as minimal C++ version
